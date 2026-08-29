@@ -25,7 +25,7 @@ export default function ProductGallery({
         />
       </div>
       {images.length > 1 && (
-        <div className="mt-3 flex gap-2 overflow-x-auto">
+        <div className="mt-3 flex flex-wrap gap-2">
           {images.map((src, i) => (
             <button
               key={src}
