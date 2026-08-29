@@ -1,36 +1,28 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# ПО «Рускисть» — сайт
 
-## Getting Started
+Сайт производственного объединения «Рускисть»: каталог щёточных изделий
+(200+ наименований), розничные и оптовые заказы, страница для партнёров.
 
-First, run the development server:
+Стек: Next.js (App Router), TypeScript, Tailwind CSS 4.
+
+## Разработка
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Открыть [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Данные каталога
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Товары хранятся в [`data/products.json`](data/products.json) — выгружены из
+Ozon Seller API (название, цена, фото, категория). Категории описаны в
+[`lib/categories.ts`](lib/categories.ts).
 
-## Learn More
+Чтобы обновить каталог из Ozon Seller API повторно, понадобятся `Client-Id`
+и `Api-Key` из личного кабинета (Настройки → Seller API → Сгенерировать
+ключ), а затем запросы к `v3/product/list` и `v3/product/info/list`.
 
-To learn more about Next.js, take a look at the following resources:
+## Деплой
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Проект развёрнут на Vercel и автоматически обновляется при пуше в `main`.
