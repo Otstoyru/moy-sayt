@@ -19,7 +19,7 @@ export default function ProductCard({ product }: { product: Product }) {
           alt={product.name}
           fill
           sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
-          className="object-cover transition-transform duration-300 group-hover:scale-105"
+          className="object-contain p-2 transition-transform duration-300 group-hover:scale-105"
         />
         {!product.inStock && (
           <span className="absolute left-2 top-2 rounded-full bg-foreground/80 px-2 py-1 text-[11px] font-medium text-white">

@@ -20,7 +20,7 @@ export default function ProductGallery({
           alt={name}
           fill
           sizes="(max-width: 1024px) 100vw, 50vw"
-          className="object-cover"
+          className="object-contain"
           priority
         />
       </div>
@@ -35,7 +35,7 @@ export default function ProductGallery({
                 i === active ? "border-brand" : "border-border"
               }`}
             >
-              <Image src={src} alt="" fill sizes="64px" className="object-cover" />
+              <Image src={src} alt="" fill sizes="64px" className="object-contain" />
             </button>
           ))}
         </div>
