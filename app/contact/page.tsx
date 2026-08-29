@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import ContactForm from "./ContactForm";
+import { company } from "@/lib/company";
 
 export const metadata: Metadata = {
   title: "Контакты — ПО «Рускисть»",
@@ -19,11 +20,29 @@ export default function ContactPage() {
         <dl className="mt-8 space-y-3 text-sm">
           <div>
             <dt className="text-muted">Email</dt>
-            <dd className="font-medium">info@ruskist.ru</dd>
+            <dd className="font-medium">{company.email}</dd>
           </div>
           <div>
             <dt className="text-muted">Телефон</dt>
-            <dd className="font-medium">+7 (000) 000-00-00</dd>
+            <dd className="font-medium">
+              <a href={`tel:${company.phoneHref}`} className="hover:text-brand">
+                {company.phone}
+              </a>
+            </dd>
+          </div>
+          <div>
+            <dt className="text-muted">Юридический адрес</dt>
+            <dd className="font-medium">{company.legalAddress}</dd>
+          </div>
+          <div>
+            <dt className="text-muted">Реквизиты</dt>
+            <dd className="font-medium">
+              {company.shortName}
+              <br />
+              ИНН {company.inn}, КПП {company.kpp}
+              <br />
+              ОГРН {company.ogrn}
+            </dd>
           </div>
         </dl>
       </div>

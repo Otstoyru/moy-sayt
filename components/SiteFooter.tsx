@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { categories } from "@/lib/categories";
+import { company } from "@/lib/company";
 
 export default function SiteFooter() {
   return (
@@ -51,14 +52,23 @@ export default function SiteFooter() {
         <div>
           <p className="text-sm font-semibold text-foreground">Контакты</p>
           <ul className="mt-3 space-y-2 text-sm text-muted">
-            <li>info@ruskist.ru</li>
-            <li>+7 (000) 000-00-00</li>
-            <li>Россия</li>
+            <li>{company.email}</li>
+            <li>
+              <a href={`tel:${company.phoneHref}`} className="hover:text-brand">
+                {company.phone}
+              </a>
+            </li>
+            <li>{company.legalAddress}</li>
           </ul>
         </div>
       </div>
       <div className="border-t border-border py-4 text-center text-xs text-muted">
-        © {new Date().getFullYear()} ПО «Рускисть». Все права защищены.
+        <p>
+          {company.shortName}, ИНН {company.inn}, ОГРН {company.ogrn}
+        </p>
+        <p className="mt-1">
+          © {new Date().getFullYear()} ПО «Рускисть». Все права защищены.
+        </p>
       </div>
     </footer>
   );
