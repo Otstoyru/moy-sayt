@@ -62,10 +62,23 @@ export default async function AdminSellersPage() {
 
       <h2 className="mt-10 font-display text-xl font-semibold">Привязка категорий к юрлицам</h2>
       <p className="mt-2 text-sm text-muted">
-        Все товары в категории будут продаваться от выбранного юрлица — это определяет,
-        кто выставляет счёт по позициям этой категории.
+        Кнопка «Сохранить» назначает юрлицо сразу всем товарам категории. Если часть товаров
+        в категории производится другим юрлицом (например, часть досок для канапе — от ИП,
+        часть — от ООО), разверните категорию и переопределите продавца для конкретных
+        артикулов отдельно.
       </p>
-      <CategorySellerTable groups={groups} categories={categories} sellers={sellers} sellerByCategory={Object.fromEntries(sellerByCategory)} />
+      <CategorySellerTable
+        groups={groups}
+        categories={categories}
+        sellers={sellers}
+        sellerByCategory={Object.fromEntries(sellerByCategory)}
+        products={products.map((p) => ({
+          article: p.article,
+          name: p.name,
+          categorySlug: p.categorySlug,
+          sellerId: p.sellerId,
+        }))}
+      />
     </div>
   );
 }

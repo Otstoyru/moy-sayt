@@ -105,3 +105,11 @@ export async function setCategorySeller(categorySlug: string, sellerId: number):
   `;
   return rows.length;
 }
+
+/** Точечное переопределение продавца для одного товара — когда в категории смешаны позиции разных юрлиц. */
+export async function setProductSeller(article: string, sellerId: number): Promise<boolean> {
+  const rows = await sql`
+    UPDATE products SET seller_id = ${sellerId} WHERE article = ${article} RETURNING article
+  `;
+  return rows.length > 0;
+}
