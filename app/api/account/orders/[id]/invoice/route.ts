@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser, getUserById } from "@/lib/auth";
-import { getOrderById } from "@/lib/db";
+import { getOrderById, getOrAssignInvoiceNumber } from "@/lib/db";
 import { getSellerById } from "@/lib/sellers";
 import { renderInvoicePdf } from "@/lib/invoice";
 
@@ -42,12 +42,13 @@ export async function GET(
   const buyer = isOwner ? user : await getUserById(order.userId);
   if (!buyer) return NextResponse.json({ error: "Покупатель не найден" }, { status: 404 });
 
-  const pdf = await renderInvoicePdf(order, seller, buyer, items);
+  const invoiceNumber = await getOrAssignInvoiceNumber(order.id, sellerId);
+  const pdf = await renderInvoicePdf(order, seller, buyer, items, invoiceNumber);
 
   return new NextResponse(new Uint8Array(pdf), {
     headers: {
       "Content-Type": "application/pdf",
-      "Content-Disposition": `inline; filename="schet-${order.id}.pdf"`,
+      "Content-Disposition": `inline; filename="schet-${seller.shortName.replace(/[^a-zA-Zа-яА-Я0-9]+/g, "_")}-${invoiceNumber}.pdf"`,
     },
   });
 }

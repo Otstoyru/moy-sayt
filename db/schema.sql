@@ -98,3 +98,21 @@ CREATE TABLE IF NOT EXISTS orders (
   payment_due_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ DEFAULT now()
 );
+
+-- Сквозной счётчик номеров счёта — свой на каждое юрлицо (не общий на все
+-- заказы), т.к. нумерация счетов у ООО и ИП/самозанятого не пересекается.
+CREATE TABLE IF NOT EXISTS seller_invoice_counters (
+  seller_id INTEGER PRIMARY KEY REFERENCES sellers(id),
+  last_number INTEGER NOT NULL DEFAULT 0
+);
+
+-- Номер счёта закрепляется за парой (заказ, продавец) один раз и больше не
+-- меняется — иначе повторное скачивание того же счёта показывало бы новый
+-- номер при каждом обращении.
+CREATE TABLE IF NOT EXISTS invoices (
+  order_id INTEGER NOT NULL REFERENCES orders(id),
+  seller_id INTEGER NOT NULL REFERENCES sellers(id),
+  invoice_number INTEGER NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (order_id, seller_id)
+);

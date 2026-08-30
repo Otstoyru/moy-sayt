@@ -184,3 +184,39 @@ export async function getOrderById(id: number): Promise<OrderRow | null> {
   `;
   return rows[0] ? mapOrderRow(rows[0]) : null;
 }
+
+/**
+ * Номер счёта на оплату для пары (заказ, продавец) — закрепляется один раз
+ * и не меняется при повторных скачиваниях. Нумерация своя для каждого
+ * юрлица (не общий счётчик на все заказы): счётчик в `seller_invoice_counters`
+ * инкрементируется атомарно через ON CONFLICT DO UPDATE, что при
+ * конкуренции сериализуется блокировкой строки — гонка возможна только
+ * между двумя ПЕРВЫМИ запросами счёта для одной и той же пары (заказ,
+ * продавец) одновременно и в худшем случае оставляет безобидный пропуск в
+ * нумерации, а не дублирование номера.
+ */
+export async function getOrAssignInvoiceNumber(orderId: number, sellerId: number): Promise<number> {
+  const existing = await sql`
+    SELECT invoice_number FROM invoices WHERE order_id = ${orderId} AND seller_id = ${sellerId}
+  `;
+  if (existing.length) return Number(existing[0].invoice_number);
+
+  const rows = await sql`
+    WITH bump AS (
+      INSERT INTO seller_invoice_counters (seller_id, last_number)
+      VALUES (${sellerId}, 1)
+      ON CONFLICT (seller_id) DO UPDATE SET last_number = seller_invoice_counters.last_number + 1
+      RETURNING last_number
+    )
+    INSERT INTO invoices (order_id, seller_id, invoice_number)
+    SELECT ${orderId}, ${sellerId}, last_number FROM bump
+    ON CONFLICT (order_id, seller_id) DO NOTHING
+    RETURNING invoice_number
+  `;
+  if (rows.length) return Number(rows[0].invoice_number);
+
+  const after = await sql`
+    SELECT invoice_number FROM invoices WHERE order_id = ${orderId} AND seller_id = ${sellerId}
+  `;
+  return Number(after[0].invoice_number);
+}

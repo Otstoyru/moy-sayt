@@ -24,12 +24,13 @@ export function renderInvoicePdf(
   order: OrderRow,
   seller: Seller,
   buyer: User,
-  items: OrderItemRow[]
+  items: OrderItemRow[],
+  invoiceNumber: number
 ): Promise<Buffer> {
   const doc = createDoc();
   const subtotal = items.reduce((sum, i) => sum + i.lineTotal, 0);
 
-  doc.font("Bold").fontSize(16).text(`Счёт на оплату №${order.id}`, { align: "left" });
+  doc.font("Bold").fontSize(16).text(`Счёт на оплату №${invoiceNumber}`, { align: "left" });
   doc.font("Regular").fontSize(10).text(`от ${fmtDate(order.createdAt)}`, { align: "left" });
   doc.moveDown(1);
 
