@@ -71,6 +71,7 @@ export function renderPriceListPdf(
         ];
       });
       const afterY = drawTable(doc, doc.page.margins.left, doc.y, columns, rows);
+      doc.x = doc.page.margins.left;
       doc.y = afterY + 10;
     }
   }

@@ -70,5 +70,10 @@ export function drawTable(
 
   for (const row of rows) drawRow(row, false);
 
+  // Иначе следующий вызов doc.text() без явных координат наследует x
+  // последней колонки и рисует текст узкой полосой у правого края.
+  doc.x = x;
+  doc.y = y;
+
   return y;
 }
