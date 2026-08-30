@@ -3,6 +3,7 @@ import { getCurrentUser, getUserById } from "@/lib/auth";
 import { getOrderById, getOrAssignInvoiceNumber } from "@/lib/db";
 import { getSellerById } from "@/lib/sellers";
 import { renderInvoicePdf } from "@/lib/invoice";
+import { slugify } from "@/lib/slugify";
 
 export async function GET(
   request: NextRequest,
@@ -48,7 +49,10 @@ export async function GET(
   return new NextResponse(new Uint8Array(pdf), {
     headers: {
       "Content-Type": "application/pdf",
-      "Content-Disposition": `inline; filename="schet-${seller.shortName.replace(/[^a-zA-Zа-яА-Я0-9]+/g, "_")}-${invoiceNumber}.pdf"`,
+      // Content-Disposition — это HTTP-заголовок, значение должно быть
+      // ByteString (0-255); кириллица напрямую туда не помещается и рушит
+      // ответ ("Cannot convert argument to a ByteString") — транслитерируем.
+      "Content-Disposition": `inline; filename="schet-${slugify(seller.shortName)}-${invoiceNumber}.pdf"`,
     },
   });
 }
