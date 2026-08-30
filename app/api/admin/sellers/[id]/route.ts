@@ -29,6 +29,7 @@ export async function PATCH(
     bankCorrAccount: body.bankCorrAccount || null,
     vatRate: body.vatRate ? Number(body.vatRate) : null,
     signatureImage: body.signatureImage || null,
+    stampImage: body.stampImage || null,
     signatoryName: body.signatoryName || null,
     signatoryPosition: body.signatoryPosition || null,
   });

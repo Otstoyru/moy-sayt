@@ -251,17 +251,29 @@ export function renderUpdPdf(
     doc.text(line, left, doc.y, { width: sigColWidth });
     doc.x = left;
   });
+  // Подпись и печать — разные вещи, ставятся в разных местах документа и
+  // не всегда обе есть, поэтому вставляются независимо друг от друга.
+  const stampX = left + 115;
+  let imagesHeight = 0;
   if (seller.signatureImage) {
     try {
-      doc.image(signatureImageBuffer(seller.signatureImage), left, doc.y + 3, { fit: [110, 42] });
-      doc.y += 46;
+      doc.image(signatureImageBuffer(seller.signatureImage), left, doc.y + 3, { fit: [100, 40] });
+      imagesHeight = Math.max(imagesHeight, 44);
     } catch {
-      doc.moveDown(1.4);
+      /* повреждённый скан — печатаем без изображения, останется пустая строка для подписи от руки */
     }
-  } else {
-    doc.moveDown(1.4);
   }
-  doc.text("_____________________ / подпись / М.П.", left, doc.y, { width: sigColWidth });
+  if (seller.stampImage) {
+    try {
+      doc.image(signatureImageBuffer(seller.stampImage), stampX, doc.y + 3, { fit: [55, 55] });
+      imagesHeight = Math.max(imagesHeight, 59);
+    } catch {
+      /* повреждённый скан печати — не критично, оттиск можно поставить от руки */
+    }
+  }
+  doc.y += imagesHeight || 34;
+  doc.text("_____________________ / подпись", left, doc.y, { width: 108 });
+  doc.font("Regular").fontSize(8).text("М.П.", stampX, doc.y, { width: 55 });
   doc.x = left;
   doc.moveDown(0.3);
   doc.font("Bold").fontSize(8).text("Товар (груз) передал / услуги, результаты работ сдал:", left, doc.y, { width: sigColWidth });

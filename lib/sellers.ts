@@ -20,8 +20,9 @@ export type Seller = {
   /** Ставка НДС в процентах (напр. 20); null/0 — не облагается (УСН/НПД). */
   vatRate: number | null;
   isActive: boolean;
-  /** Скан подписи/печати (data URL) для вставки в PDF УПД. */
+  /** Сканы подписи и печати (data URL) для вставки в PDF УПД — раздельно. */
   signatureImage: string | null;
+  stampImage: string | null;
   /** ФИО и должность лица, подписывающего счета-фактуры/УПД от имени юрлица. */
   signatoryName: string | null;
   signatoryPosition: string | null;
@@ -46,6 +47,7 @@ function mapSeller(r: Record<string, unknown>): Seller {
     vatRate: r.vat_rate === null || r.vat_rate === undefined ? null : Number(r.vat_rate),
     isActive: Boolean(r.is_active),
     signatureImage: (r.signature_image as string) ?? null,
+    stampImage: (r.stamp_image as string) ?? null,
     signatoryName: (r.signatory_name as string) ?? null,
     signatoryPosition: (r.signatory_position as string) ?? null,
   };
@@ -77,6 +79,7 @@ export type SellerInput = {
   bankCorrAccount: string | null;
   vatRate: number | null;
   signatureImage: string | null;
+  stampImage: string | null;
   signatoryName: string | null;
   signatoryPosition: string | null;
 };
@@ -86,11 +89,11 @@ export async function createSeller(input: SellerInput): Promise<Seller> {
     INSERT INTO sellers (
       legal_form, full_name, short_name, inn, kpp, ogrn, legal_address,
       phone, email, bank_account, bank_name, bank_bik, bank_corr_account, vat_rate,
-      signature_image, signatory_name, signatory_position
+      signature_image, stamp_image, signatory_name, signatory_position
     ) VALUES (
       ${input.legalForm}, ${input.fullName}, ${input.shortName}, ${input.inn}, ${input.kpp}, ${input.ogrn},
       ${input.legalAddress}, ${input.phone}, ${input.email}, ${input.bankAccount}, ${input.bankName},
-      ${input.bankBik}, ${input.bankCorrAccount}, ${input.vatRate}, ${input.signatureImage},
+      ${input.bankBik}, ${input.bankCorrAccount}, ${input.vatRate}, ${input.signatureImage}, ${input.stampImage},
       ${input.signatoryName}, ${input.signatoryPosition}
     )
     RETURNING *
@@ -105,7 +108,7 @@ export async function updateSeller(id: number, input: SellerInput): Promise<Sell
       inn = ${input.inn}, kpp = ${input.kpp}, ogrn = ${input.ogrn}, legal_address = ${input.legalAddress},
       phone = ${input.phone}, email = ${input.email}, bank_account = ${input.bankAccount},
       bank_name = ${input.bankName}, bank_bik = ${input.bankBik}, bank_corr_account = ${input.bankCorrAccount},
-      vat_rate = ${input.vatRate}, signature_image = ${input.signatureImage},
+      vat_rate = ${input.vatRate}, signature_image = ${input.signatureImage}, stamp_image = ${input.stampImage},
       signatory_name = ${input.signatoryName}, signatory_position = ${input.signatoryPosition}
     WHERE id = ${id}
     RETURNING *

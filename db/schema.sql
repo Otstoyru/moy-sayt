@@ -56,8 +56,10 @@ CREATE TABLE IF NOT EXISTS sellers (
   bank_corr_account TEXT,
   vat_rate NUMERIC,                -- ставка НДС в % (напр. 20); NULL/0 — не облагается (УСН/НПД)
   is_active BOOLEAN NOT NULL DEFAULT true,
-  -- скан подписи/печати (data URL, base64) для вставки в PDF УПД
+  -- сканы подписи и печати (data URL, base64) для вставки в PDF УПД —
+  -- раздельно, т.к. не всегда есть оба и они ставятся в разных местах
   signature_image TEXT,
+  stamp_image TEXT,
   -- ФИО и должность ответственного лица, подписывающего счета-фактуры/УПД от имени юрлица
   signatory_name TEXT,
   signatory_position TEXT,

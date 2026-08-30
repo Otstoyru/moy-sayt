@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { ChangeEvent, FormEvent, useState } from "react";
+import { FormEvent, useState } from "react";
 import { SELLER_LEGAL_FORMS } from "@/lib/sellerForms";
 import type { Seller } from "@/lib/sellers";
 
@@ -11,16 +11,15 @@ export default function SellerFormModal({ seller }: { seller?: Seller }) {
   const [status, setStatus] = useState<"idle" | "submitting" | "error">("idle");
   const [error, setError] = useState("");
   const [signatureImage, setSignatureImage] = useState<string | null>(seller?.signatureImage ?? null);
+  const [stampImage, setStampImage] = useState<string | null>(seller?.stampImage ?? null);
 
-  function handleSignatureFile(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    if (!file) return;
+  function readImageFile(file: File, onLoad: (dataUrl: string) => void) {
     if (file.size > 2_000_000) {
       setError("Файл слишком большой (максимум 2 МБ)");
       return;
     }
     const reader = new FileReader();
-    reader.onload = () => setSignatureImage(reader.result as string);
+    reader.onload = () => onLoad(reader.result as string);
     reader.readAsDataURL(file);
   }
 
@@ -30,7 +29,7 @@ export default function SellerFormModal({ seller }: { seller?: Seller }) {
     setError("");
 
     const form = new FormData(event.currentTarget);
-    const payload = { ...Object.fromEntries(form.entries()), signatureImage };
+    const payload = { ...Object.fromEntries(form.entries()), signatureImage, stampImage };
 
     const res = await fetch(seller ? `/api/admin/sellers/${seller.id}` : "/api/admin/sellers", {
       method: seller ? "PATCH" : "POST",
@@ -153,32 +152,24 @@ export default function SellerFormModal({ seller }: { seller?: Seller }) {
               <p className="mt-2 text-xs font-semibold uppercase tracking-wide text-muted">
                 Подпись и печать (для УПД)
               </p>
-              <div className="flex items-center gap-3">
-                {signatureImage && (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={signatureImage}
-                    alt="Скан подписи и печати"
-                    className="h-16 rounded border border-border bg-white object-contain p-1"
-                  />
-                )}
-                <div className="flex flex-col gap-1.5">
-                  <input
-                    type="file"
-                    accept="image/png,image/jpeg"
-                    onChange={handleSignatureFile}
-                    className="text-sm"
-                  />
-                  {signatureImage && (
-                    <button
-                      type="button"
-                      onClick={() => setSignatureImage(null)}
-                      className="w-fit text-xs text-red-600 hover:underline"
-                    >
-                      Удалить
-                    </button>
-                  )}
-                </div>
+              <p className="text-xs text-muted">
+                Загружаются раздельно — не всегда есть оба сразу, и на документе они стоят в разных местах.
+              </p>
+              <div className="grid grid-cols-2 gap-4">
+                <ImageUpload
+                  label="Подпись"
+                  value={signatureImage}
+                  onChange={(v) => setSignatureImage(v)}
+                  onError={setError}
+                  readImageFile={readImageFile}
+                />
+                <ImageUpload
+                  label="Печать (М.П.)"
+                  value={stampImage}
+                  onChange={(v) => setStampImage(v)}
+                  onError={setError}
+                  readImageFile={readImageFile}
+                />
               </div>
 
               {error && <p className="text-sm text-red-600">{error}</p>}
@@ -195,6 +186,50 @@ export default function SellerFormModal({ seller }: { seller?: Seller }) {
         </div>
       )}
     </>
+  );
+}
+
+function ImageUpload({
+  label,
+  value,
+  onChange,
+  onError,
+  readImageFile,
+}: {
+  label: string;
+  value: string | null;
+  onChange: (v: string | null) => void;
+  onError: (msg: string) => void;
+  readImageFile: (file: File, onLoad: (dataUrl: string) => void) => void;
+}) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <span className="text-sm font-medium">{label}</span>
+      <div className="flex items-center gap-2">
+        {value && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={value} alt={label} className="h-14 w-14 rounded border border-border bg-white object-contain p-1" />
+        )}
+        <div className="flex flex-col gap-1">
+          <input
+            type="file"
+            accept="image/png,image/jpeg"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (!file) return;
+              onError("");
+              readImageFile(file, onChange);
+            }}
+            className="text-xs"
+          />
+          {value && (
+            <button type="button" onClick={() => onChange(null)} className="w-fit text-xs text-red-600 hover:underline">
+              Удалить
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }
 
