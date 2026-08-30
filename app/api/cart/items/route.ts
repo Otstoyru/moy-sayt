@@ -1,7 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { getProductByArticle } from "@/lib/products";
-import { trySetReservation, deleteReservation, getStock, getReservedByOthers } from "@/lib/db";
+import {
+  trySetReservation,
+  deleteReservation,
+  getStock,
+  getReservedByOthers,
+  hasConfirmedReservation,
+} from "@/lib/db";
 import { getCart } from "@/lib/cart";
 
 export async function POST(request: NextRequest) {
@@ -27,6 +33,13 @@ export async function POST(request: NextRequest) {
     await deleteReservation(article, user.id);
     const cart = await getCart(user.id);
     return NextResponse.json(cart);
+  }
+
+  if (await hasConfirmedReservation(article, user.id)) {
+    return NextResponse.json(
+      { error: "У вас уже есть заказ на этот товар, ожидающий оплаты", availablePackages: 0 },
+      { status: 409 }
+    );
   }
 
   const quantityUnits = packages * product.packageSize;

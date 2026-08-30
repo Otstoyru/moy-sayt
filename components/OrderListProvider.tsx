@@ -41,7 +41,7 @@ type OrderListContextValue = {
     email?: string;
     comment?: string;
     buyerType: string;
-  }) => Promise<{ ok: true } | { ok: false; error: string }>;
+  }) => Promise<{ ok: true; orderId: number; paymentDueAt: string } | { ok: false; error: string }>;
 };
 
 const OrderListContext = createContext<OrderListContextValue | null>(null);
@@ -115,8 +115,9 @@ export function OrderListProvider({ children }: { children: ReactNode }) {
         body: JSON.stringify(fields),
       });
       if (res.ok) {
+        const data = await res.json();
         await refresh();
-        return { ok: true as const };
+        return { ok: true as const, orderId: data.orderId, paymentDueAt: data.paymentDueAt };
       }
       if (res.status === 401) {
         return { ok: false as const, error: "Требуется вход в аккаунт" };

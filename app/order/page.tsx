@@ -20,6 +20,7 @@ export default function OrderPage() {
   const [status, setStatus] = useState<Status>("idle");
   const [errorMessage, setErrorMessage] = useState("");
   const [buyerType, setBuyerType] = useState<"retail" | "wholesale">("retail");
+  const [successInfo, setSuccessInfo] = useState<{ orderId: number; paymentDueAt: string } | null>(null);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -35,6 +36,7 @@ export default function OrderPage() {
     });
 
     if (result.ok) {
+      setSuccessInfo({ orderId: result.orderId, paymentDueAt: result.paymentDueAt });
       setStatus("success");
       form.reset();
     } else {
@@ -43,21 +45,38 @@ export default function OrderPage() {
     }
   }
 
-  if (status === "success") {
+  if (status === "success" && successInfo) {
+    const dueLabel = new Date(successInfo.paymentDueAt).toLocaleString("ru-RU", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
     return (
       <div className="mx-auto w-full max-w-2xl px-6 py-20 text-center">
         <h1 className="font-display text-2xl font-semibold">
-          Спасибо! Заявка отправлена
+          Спасибо! Заявка №{successInfo.orderId} принята
         </h1>
         <p className="mt-3 text-muted">
-          Мы свяжемся с вами в ближайшее время, чтобы уточнить детали заказа.
+          Товар зарезервирован. Пожалуйста, оплатите заказ до{" "}
+          <span className="font-semibold text-foreground">{dueLabel}</span> — иначе
+          резерв будет автоматически снят.
         </p>
-        <Link
-          href="/catalog"
-          className="mt-6 inline-flex h-11 items-center justify-center rounded-full bg-foreground px-6 text-sm font-medium text-background hover:bg-brand"
-        >
-          Вернуться в каталог
-        </Link>
+        <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+          <Link
+            href="/account"
+            className="inline-flex h-11 items-center justify-center rounded-full border border-border px-6 text-sm font-medium hover:border-brand hover:text-brand"
+          >
+            Мои заказы
+          </Link>
+          <Link
+            href="/catalog"
+            className="inline-flex h-11 items-center justify-center rounded-full bg-foreground px-6 text-sm font-medium text-background hover:bg-brand"
+          >
+            Вернуться в каталог
+          </Link>
+        </div>
       </div>
     );
   }

@@ -69,5 +69,9 @@ CREATE TABLE IF NOT EXISTS orders (
   items JSONB,
   discount_percent NUMERIC,
   total NUMERIC,
+  -- 'reserved' | 'paid' | 'sold' | 'expired' | 'cancelled' — paid/sold/cancelled
+  -- проставляются менеджером (следующая фаза)
+  status TEXT NOT NULL DEFAULT 'reserved',
+  payment_due_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ DEFAULT now()
 );

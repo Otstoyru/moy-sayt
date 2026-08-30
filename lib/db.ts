@@ -14,6 +14,11 @@ export type ReservationRow = {
  * are accounted for. A single CTE + FOR UPDATE statement — the row lock on
  * `products` is held for the statement's duration, so a concurrent request
  * for the same article cannot both succeed past the stock limit.
+ *
+ * Only touches a NOT-yet-confirmed (still-in-cart) reservation row — once a
+ * reservation has been confirmed as part of a submitted order, cart edits
+ * must not silently overwrite it (the user would need to wait for that
+ * order to resolve before reserving the same article again).
  */
 export async function trySetReservation(
   article: string,
@@ -28,7 +33,7 @@ export async function trySetReservation(
       SELECT COALESCE(SUM(quantity), 0) AS q FROM reservations
       WHERE article = ${article}
         AND user_id <> ${userId}
-        AND (confirmed OR expires_at > now())
+        AND expires_at > now()
     )
     INSERT INTO reservations (user_id, article, quantity, expires_at)
     SELECT ${userId}, ${article}, ${quantityUnits}, now() + interval '30 minutes'
@@ -36,22 +41,32 @@ export async function trySetReservation(
     WHERE lock.stock - active.q >= ${quantityUnits}
     ON CONFLICT (user_id, article)
       DO UPDATE SET quantity = ${quantityUnits}, expires_at = now() + interval '30 minutes'
+      WHERE NOT reservations.confirmed
     RETURNING quantity
   `;
   return rows.length > 0;
 }
 
-export async function deleteReservation(article: string, userId: number): Promise<void> {
-  await sql`DELETE FROM reservations WHERE article = ${article} AND user_id = ${userId}`;
+/** True if this user already has this article tied up in a submitted (unpaid) order. */
+export async function hasConfirmedReservation(article: string, userId: number): Promise<boolean> {
+  const rows = await sql`
+    SELECT 1 FROM reservations
+    WHERE article = ${article} AND user_id = ${userId} AND confirmed AND expires_at > now()
+  `;
+  return rows.length > 0;
 }
 
-/** Stock reserved by OTHER users (confirmed, or still-active/unexpired). */
+export async function deleteReservation(article: string, userId: number): Promise<void> {
+  await sql`DELETE FROM reservations WHERE article = ${article} AND user_id = ${userId} AND NOT confirmed`;
+}
+
+/** Stock reserved by OTHER users — still-active cart holds or unpaid confirmed orders. */
 export async function getReservedByOthers(article: string, userId: number): Promise<number> {
   const rows = await sql`
     SELECT COALESCE(SUM(quantity), 0) AS q FROM reservations
     WHERE article = ${article}
       AND user_id <> ${userId}
-      AND (confirmed OR expires_at > now())
+      AND expires_at > now()
   `;
   return Number(rows[0]?.q ?? 0);
 }
@@ -62,22 +77,31 @@ export async function getStock(article: string): Promise<number | null> {
   return Number(rows[0].stock);
 }
 
-/** This user's own active (non-expired or confirmed) reservations. */
+/** This user's current shopping cart — reservations not yet submitted as an order. */
 export async function getUserReservations(userId: number): Promise<ReservationRow[]> {
   const rows = await sql`
     SELECT article, quantity FROM reservations
-    WHERE user_id = ${userId} AND (confirmed OR expires_at > now())
+    WHERE user_id = ${userId} AND NOT confirmed AND expires_at > now()
     ORDER BY id ASC
   `;
   return rows.map((r) => ({ article: r.article as string, quantity: Number(r.quantity) }));
 }
 
-/** Marks all of this user's active reservations as confirmed (they stop expiring). */
-export async function confirmUserReservations(userId: number): Promise<ReservationRow[]> {
+/**
+ * Confirms all of this user's active cart reservations as part of a
+ * submitted order: marks them `confirmed` (excludes them from the cart
+ * view) and pushes their expiry out to the payment deadline — after that,
+ * if still unpaid, they lazily stop blocking stock like any other expired
+ * reservation, no cron required.
+ */
+export async function confirmUserReservations(
+  userId: number,
+  paymentDueAt: Date
+): Promise<ReservationRow[]> {
   const rows = await sql`
     UPDATE reservations
-    SET confirmed = true
-    WHERE user_id = ${userId} AND expires_at > now() AND NOT confirmed
+    SET confirmed = true, expires_at = ${paymentDueAt.toISOString()}
+    WHERE user_id = ${userId} AND NOT confirmed AND expires_at > now()
     RETURNING article, quantity
   `;
   return rows.map((r) => ({ article: r.article as string, quantity: Number(r.quantity) }));
@@ -93,14 +117,47 @@ export type NewOrder = {
   items: unknown;
   discountPercent: number;
   total: number;
+  paymentDueAt: Date;
 };
 
-export async function insertOrder(order: NewOrder): Promise<void> {
-  await sql`
-    INSERT INTO orders (user_id, name, phone, email, comment, buyer_type, items, discount_percent, total)
+export async function insertOrder(order: NewOrder): Promise<number> {
+  const rows = await sql`
+    INSERT INTO orders (
+      user_id, name, phone, email, comment, buyer_type, items, discount_percent, total,
+      status, payment_due_at
+    )
     VALUES (
       ${order.userId}, ${order.name}, ${order.phone}, ${order.email}, ${order.comment},
-      ${order.buyerType}, ${JSON.stringify(order.items)}, ${order.discountPercent}, ${order.total}
+      ${order.buyerType}, ${JSON.stringify(order.items)}, ${order.discountPercent}, ${order.total},
+      'reserved', ${order.paymentDueAt.toISOString()}
     )
+    RETURNING id
   `;
+  return Number(rows[0].id);
+}
+
+export type OrderRow = {
+  id: number;
+  items: { article: string; name: string; packages: number; unitPrice: number; lineTotal: number }[];
+  discountPercent: number;
+  total: number;
+  status: string;
+  paymentDueAt: string | null;
+  createdAt: string;
+};
+
+export async function getUserOrders(userId: number): Promise<OrderRow[]> {
+  const rows = await sql`
+    SELECT id, items, discount_percent, total, status, payment_due_at, created_at
+    FROM orders WHERE user_id = ${userId} ORDER BY created_at DESC
+  `;
+  return rows.map((r) => ({
+    id: Number(r.id),
+    items: r.items ?? [],
+    discountPercent: Number(r.discount_percent),
+    total: Number(r.total),
+    status: r.status as string,
+    paymentDueAt: r.payment_due_at as string | null,
+    createdAt: r.created_at as string,
+  }));
 }
