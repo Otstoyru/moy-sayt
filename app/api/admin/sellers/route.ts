@@ -38,6 +38,9 @@ export async function POST(request: NextRequest) {
     bankBik: body.bankBik || null,
     bankCorrAccount: body.bankCorrAccount || null,
     vatRate: body.vatRate ? Number(body.vatRate) : null,
+    signatureImage: body.signatureImage || null,
+    signatoryName: body.signatoryName || null,
+    signatoryPosition: body.signatoryPosition || null,
   });
 
   return NextResponse.json(seller);

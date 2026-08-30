@@ -28,6 +28,9 @@ export async function PATCH(
     bankBik: body.bankBik || null,
     bankCorrAccount: body.bankCorrAccount || null,
     vatRate: body.vatRate ? Number(body.vatRate) : null,
+    signatureImage: body.signatureImage || null,
+    signatoryName: body.signatoryName || null,
+    signatoryPosition: body.signatoryPosition || null,
   });
 
   if (!seller) return NextResponse.json({ error: "Не найдено" }, { status: 404 });

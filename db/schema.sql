@@ -56,6 +56,11 @@ CREATE TABLE IF NOT EXISTS sellers (
   bank_corr_account TEXT,
   vat_rate NUMERIC,                -- ставка НДС в % (напр. 20); NULL/0 — не облагается (УСН/НПД)
   is_active BOOLEAN NOT NULL DEFAULT true,
+  -- скан подписи/печати (data URL, base64) для вставки в PDF УПД
+  signature_image TEXT,
+  -- ФИО и должность ответственного лица, подписывающего счета-фактуры/УПД от имени юрлица
+  signatory_name TEXT,
+  signatory_position TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
@@ -113,6 +118,22 @@ CREATE TABLE IF NOT EXISTS invoices (
   order_id INTEGER NOT NULL REFERENCES orders(id),
   seller_id INTEGER NOT NULL REFERENCES sellers(id),
   invoice_number INTEGER NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (order_id, seller_id)
+);
+
+-- УПД — документ строгой отчётности, номер закрепляется в момент отметки
+-- заказа проданным (не при скачивании), своя последовательность на каждое
+-- юрлицо, отдельная от нумерации счетов на оплату.
+CREATE TABLE IF NOT EXISTS seller_upd_counters (
+  seller_id INTEGER PRIMARY KEY REFERENCES sellers(id),
+  last_number INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS upd_documents (
+  order_id INTEGER NOT NULL REFERENCES orders(id),
+  seller_id INTEGER NOT NULL REFERENCES sellers(id),
+  upd_number INTEGER NOT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   PRIMARY KEY (order_id, seller_id)
 );

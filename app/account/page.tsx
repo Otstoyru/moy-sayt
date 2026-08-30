@@ -180,6 +180,20 @@ export default async function AccountPage() {
                       </a>
                     )
                   )}
+                  {order.status === "sold" &&
+                    [...new Set(order.items.map((i) => i.sellerId).filter((v): v is number => v !== null))].map(
+                      (sellerId) => (
+                        <a
+                          key={`upd-${sellerId}`}
+                          href={`/api/account/orders/${order.id}/upd?seller=${sellerId}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-sm font-medium text-brand hover:underline"
+                        >
+                          Скачать УПД{sellers.length > 1 ? ` (${sellerById.get(sellerId)?.shortName})` : ""} (PDF)
+                        </a>
+                      )
+                    )}
                 </div>
               </div>
             );

@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { FormEvent, useState } from "react";
+import { ChangeEvent, FormEvent, useState } from "react";
 import { SELLER_LEGAL_FORMS } from "@/lib/sellerForms";
 import type { Seller } from "@/lib/sellers";
 
@@ -10,6 +10,19 @@ export default function SellerFormModal({ seller }: { seller?: Seller }) {
   const [open, setOpen] = useState(false);
   const [status, setStatus] = useState<"idle" | "submitting" | "error">("idle");
   const [error, setError] = useState("");
+  const [signatureImage, setSignatureImage] = useState<string | null>(seller?.signatureImage ?? null);
+
+  function handleSignatureFile(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (file.size > 2_000_000) {
+      setError("Файл слишком большой (максимум 2 МБ)");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => setSignatureImage(reader.result as string);
+    reader.readAsDataURL(file);
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -17,7 +30,7 @@ export default function SellerFormModal({ seller }: { seller?: Seller }) {
     setError("");
 
     const form = new FormData(event.currentTarget);
-    const payload = Object.fromEntries(form.entries());
+    const payload = { ...Object.fromEntries(form.entries()), signatureImage };
 
     const res = await fetch(seller ? `/api/admin/sellers/${seller.id}` : "/api/admin/sellers", {
       method: seller ? "PATCH" : "POST",
@@ -123,6 +136,49 @@ export default function SellerFormModal({ seller }: { seller?: Seller }) {
                   defaultValue={seller?.vatRate ?? ""}
                   className="h-11 rounded-md border border-border bg-surface px-3 outline-none focus:border-brand"
                 />
+              </div>
+
+              <p className="mt-2 text-xs font-semibold uppercase tracking-wide text-muted">
+                Подписант (для счетов-фактур и УПД)
+              </p>
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="ФИО" name="signatoryName" defaultValue={seller?.signatoryName ?? ""} />
+                <Field
+                  label="Должность"
+                  name="signatoryPosition"
+                  defaultValue={seller?.signatoryPosition ?? "Директор"}
+                />
+              </div>
+
+              <p className="mt-2 text-xs font-semibold uppercase tracking-wide text-muted">
+                Подпись и печать (для УПД)
+              </p>
+              <div className="flex items-center gap-3">
+                {signatureImage && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={signatureImage}
+                    alt="Скан подписи и печати"
+                    className="h-16 rounded border border-border bg-white object-contain p-1"
+                  />
+                )}
+                <div className="flex flex-col gap-1.5">
+                  <input
+                    type="file"
+                    accept="image/png,image/jpeg"
+                    onChange={handleSignatureFile}
+                    className="text-sm"
+                  />
+                  {signatureImage && (
+                    <button
+                      type="button"
+                      onClick={() => setSignatureImage(null)}
+                      className="w-fit text-xs text-red-600 hover:underline"
+                    >
+                      Удалить
+                    </button>
+                  )}
+                </div>
               </div>
 
               {error && <p className="text-sm text-red-600">{error}</p>}

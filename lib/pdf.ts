@@ -4,8 +4,13 @@ import path from "node:path";
 const FONT_REGULAR = path.join(process.cwd(), "lib/fonts/PTSerif-Regular.ttf");
 const FONT_BOLD = path.join(process.cwd(), "lib/fonts/PTSerif-Bold.ttf");
 
-export function createDoc(): PDFKit.PDFDocument {
-  const doc = new PDFDocument({ margin: 50, size: "A4", bufferPages: true });
+export function createDoc(options?: { layout?: "portrait" | "landscape" }): PDFKit.PDFDocument {
+  const doc = new PDFDocument({
+    margin: 50,
+    size: "A4",
+    layout: options?.layout ?? "portrait",
+    bufferPages: true,
+  });
   doc.registerFont("Regular", FONT_REGULAR);
   doc.registerFont("Bold", FONT_BOLD);
   doc.font("Regular").fontSize(10);
@@ -40,17 +45,24 @@ export function drawTable(
   columns: TableColumn[],
   rows: string[][]
 ): number {
-  const rowHeight = 20;
+  const minRowHeight = 20;
   const pageBottom = doc.page.height - doc.page.margins.bottom;
   let y = startY;
 
   function drawRow(cells: string[], bold: boolean) {
+    doc.font(bold ? "Bold" : "Regular").fontSize(9);
+    // Строка может занять больше одной линии (длинное название товара) —
+    // высота строки берётся по самой высокой ячейке, иначе следующая
+    // строка накладывается на перенесённый текст этой.
+    const rowHeight = Math.max(
+      minRowHeight,
+      ...columns.map((col, i) => doc.heightOfString(cells[i] ?? "", { width: col.width }) + 6)
+    );
     if (y + rowHeight > pageBottom) {
       doc.addPage();
       y = doc.page.margins.top;
     }
     let cx = x;
-    doc.font(bold ? "Bold" : "Regular").fontSize(9);
     columns.forEach((col, i) => {
       doc.text(cells[i] ?? "", cx, y, {
         width: col.width,

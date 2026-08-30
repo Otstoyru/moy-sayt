@@ -220,3 +220,64 @@ export async function getOrAssignInvoiceNumber(orderId: number, sellerId: number
   `;
   return Number(after[0].invoice_number);
 }
+
+/**
+ * Номер УПД для пары (заказ, продавец) — в отличие от счёта на оплату это
+ * документ строгой отчётности со своей отдельной последовательностью на
+ * каждое юрлицо. На практике вызывается один раз, в момент отметки заказа
+ * проданным (см. `markOrderSold`) — здесь же не эагерно, а идемпотентно,
+ * чтобы повторное обращение (например, скачивание уже выданного УПД)
+ * никогда не создавало новый номер.
+ */
+export async function getOrAssignUpdNumber(orderId: number, sellerId: number): Promise<number> {
+  const existing = await sql`
+    SELECT upd_number FROM upd_documents WHERE order_id = ${orderId} AND seller_id = ${sellerId}
+  `;
+  if (existing.length) return Number(existing[0].upd_number);
+
+  const rows = await sql`
+    WITH bump AS (
+      INSERT INTO seller_upd_counters (seller_id, last_number)
+      VALUES (${sellerId}, 1)
+      ON CONFLICT (seller_id) DO UPDATE SET last_number = seller_upd_counters.last_number + 1
+      RETURNING last_number
+    )
+    INSERT INTO upd_documents (order_id, seller_id, upd_number)
+    SELECT ${orderId}, ${sellerId}, last_number FROM bump
+    ON CONFLICT (order_id, seller_id) DO NOTHING
+    RETURNING upd_number
+  `;
+  if (rows.length) return Number(rows[0].upd_number);
+
+  const after = await sql`
+    SELECT upd_number FROM upd_documents WHERE order_id = ${orderId} AND seller_id = ${sellerId}
+  `;
+  return Number(after[0].upd_number);
+}
+
+export async function getAllOrders(): Promise<OrderRow[]> {
+  const rows = await sql`
+    SELECT id, user_id, items, discount_percent, total, status, payment_due_at, created_at
+    FROM orders ORDER BY created_at DESC
+  `;
+  return rows.map(mapOrderRow);
+}
+
+/**
+ * Отмечает заказ проданным (внесена оплата) и в тот же момент закрепляет
+ * номер УПД за каждым юрлицом, представленным в заказе — так нумерация
+ * строгого документа привязана к реальному событию продажи, а не к
+ * произвольному моменту первого скачивания PDF. Идемпотентна: повторный
+ * вызов для уже проданного заказа не меняет ни статус, ни номера УПД.
+ */
+export async function markOrderSold(orderId: number): Promise<OrderRow | null> {
+  await sql`UPDATE orders SET status = 'sold' WHERE id = ${orderId} AND status <> 'cancelled'`;
+  const order = await getOrderById(orderId);
+  if (!order) return null;
+
+  const sellerIds = [...new Set(order.items.map((i) => i.sellerId).filter((v): v is number => v !== null))];
+  for (const sellerId of sellerIds) {
+    await getOrAssignUpdNumber(order.id, sellerId);
+  }
+  return order;
+}

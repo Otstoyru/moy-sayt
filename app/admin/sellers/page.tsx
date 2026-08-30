@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { requireRole } from "@/lib/auth";
 import { getSellers, sellerLegalFormLabel } from "@/lib/sellers";
 import { getCategories, getGroups } from "@/lib/categories";
@@ -28,7 +29,12 @@ export default async function AdminSellersPage() {
     <div className="mx-auto w-full max-w-4xl px-6 py-12">
       <div className="flex items-center justify-between">
         <h1 className="font-display text-3xl font-semibold">Юрлица</h1>
-        <SellerFormModal />
+        <div className="flex items-center gap-4">
+          <Link href="/admin/orders" className="text-sm font-medium text-brand hover:underline">
+            Заказы →
+          </Link>
+          <SellerFormModal />
+        </div>
       </div>
       <p className="mt-2 text-sm text-muted">
         Юрлица/ИП/самозанятые, от чьего имени продаются товары и услуги — используются
