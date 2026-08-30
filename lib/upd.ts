@@ -1,4 +1,4 @@
-import { createDoc, renderToBuffer, money, drawTable } from "@/lib/pdf";
+import { createDoc, renderToBuffer, money } from "@/lib/pdf";
 import { sellerLegalFormLabel, type Seller } from "@/lib/sellers";
 import { orgFormLabel } from "@/lib/orgForms";
 import type { User } from "@/lib/auth";
@@ -28,16 +28,8 @@ function sellerSignatoryLines(seller: Seller): string[] {
 }
 
 const PAGE_COUNT_WORDS: Record<number, string> = {
-  1: "одном",
-  2: "двух",
-  3: "трёх",
-  4: "четырёх",
-  5: "пяти",
-  6: "шести",
-  7: "семи",
-  8: "восьми",
-  9: "девяти",
-  10: "десяти",
+  1: "одном", 2: "двух", 3: "трёх", 4: "четырёх", 5: "пяти",
+  6: "шести", 7: "семи", 8: "восьми", 9: "девяти", 10: "десяти",
 };
 
 /** «на двух листах» — стандартная для УПД словесная форма, а не цифра. */
@@ -46,15 +38,19 @@ function pageCountPhrase(count: number): string {
   return `${word} ${count === 1 ? "листе" : "листах"}`;
 }
 
+type FormCell = { label: string; value: string; code: string; width: number } | null;
+
 /**
  * Рендерит УПД статус 1 (совмещённый со счёт-фактурой) для одного продавца
- * по подмножеству позиций заказа, относящихся к нему. Состав и порядок
- * граф следуют рекомендуемой форме УПД (письмо ФНС России от 21.10.2013
- * № ММВ-20-3/96@ на основе бланка счёта-фактуры по Постановлению
- * Правительства РФ от 26.12.2011 № 1137). Упрощения, сделанные сознательно
- * для малого бизнеса без склад-логистики между разными юрлицами:
- *  - «Код вида товара», «Страна происхождения», «Рег. № декларации» —
- *    прочерк: товар производится в РФ, не подлежит прослеживаемости;
+ * по подмножеству позиций заказа, относящихся к нему. Вёрстка нарочно
+ * повторяет реальный бланк (рамки, разбивка на графы, коды граф А, 1, 1а...
+ * как в письме ФНС России от 21.10.2013 № ММВ-20-3/96@ на основе бланка
+ * счёта-фактуры по Постановлению Правительства РФ от 26.12.2011 № 1137),
+ * а не просто список тех же полей текстом — сверено с реальным УПД,
+ * который выпускает бухгалтер продавца. Упрощения, сделанные сознательно:
+ *  - «Код товара», «Код вида товара», «Страна происхождения», «Рег. №
+ *    декларации» — прочерк: товар производится в РФ, не подлежит
+ *    прослеживаемости и вывозу;
  *  - Грузоотправитель/грузополучатель всегда совпадают с продавцом/
  *    покупателем («он же») — товар не транзитом через третьих лиц;
  *  - «Данные о транспортировке» — фиксировано «самовывоз со склада
@@ -82,99 +78,204 @@ export function renderUpdPdf(
   const totalWithoutVat = seller.vatRate ? totalWithVat / (1 + seller.vatRate / 100) : totalWithVat;
   const totalVat = totalWithVat - totalWithoutVat;
 
-  function field(label: string, value: string, x: number, y: number, width: number): number {
-    doc.font("Bold").fontSize(8).text(label, x, y, { width, continued: false });
-    doc.font("Regular").fontSize(9).text(value, x, doc.y, { width });
-    return doc.y;
+  const colWidth = fullWidth / 2 - 1;
+
+  /** Одна строка формы-таблицы: label сверху мелко, value ниже — с рамкой по бокам/снизу. */
+  function formRow(cells: FormCell[], y: number): number {
+    // Высота меряется ТЕМ ЖЕ шрифтом/размером, каким value рисуется ниже
+    // (8.5pt Regular) — иначе оценка занижена и длинное двухстрочное
+    // значение наезжает на следующую строку формы.
+    doc.font("Regular").fontSize(8.5);
+    const heights = cells.map((cell) => {
+      if (!cell) return 0;
+      return doc.heightOfString(cell.value, { width: cell.width - 8 });
+    });
+    const rowHeight = Math.max(24, ...heights.map((h) => h + 18));
+
+    let cx = left;
+    cells.forEach((cell) => {
+      if (cell) {
+        doc.font("Bold").fontSize(6.5).fillColor("#444444");
+        doc.text(`${cell.label} (${cell.code})`, cx + 4, y + 3, { width: cell.width - 8 });
+        doc.font("Regular").fontSize(8.5).fillColor("black");
+        doc.text(cell.value, cx + 4, y + 12, { width: cell.width - 8 });
+      }
+      cx += cell ? cell.width : 0;
+    });
+
+    return y + rowHeight;
   }
 
-  // --- Заголовок ---
-  doc.rect(left, doc.page.margins.top, 95, 38).strokeColor("#333333").stroke();
+  // --- Рамка блока реквизитов: заголовок + статус + продавец/покупатель ---
+  const formTop = doc.page.margins.top;
+  let y = formTop;
+
+  // Заголовок: статус-бокс слева, название документа и номер справа.
+  const headerHeight = 46;
+  doc.rect(left, y, fullWidth, headerHeight).strokeColor("#333333").lineWidth(0.75).stroke();
+  doc.moveTo(left + 95, y).lineTo(left + 95, y + headerHeight).stroke();
   doc
     .font("Bold")
     .fontSize(8)
-    .text("Статус: 1", left + 5, doc.page.margins.top + 3, { width: 85 })
-    .fontSize(6.5)
+    .fillColor("black")
+    .text("Статус: 1", left + 5, y + 4, { width: 85 })
     .font("Regular")
-    .text("счёт-фактура и передаточный документ (акт)", left + 5, doc.page.margins.top + 13, { width: 85 });
+    .fontSize(6.5)
+    .text("счёт-фактура и передаточный документ (акт)", left + 5, y + 15, { width: 85 });
 
-  doc.font("Bold").fontSize(13).text("Универсальный передаточный документ", left + 110, doc.page.margins.top, {
+  doc.font("Bold").fontSize(13).text("Универсальный передаточный документ", left + 105, y + 6, {
     width: fullWidth - 110,
   });
   doc.font("Regular").fontSize(9);
   doc.text(
     `Счёт-фактура № ${updNumber} от ${fmtDate(order.createdAt)}   ·   Исправление: № — от —`,
-    left + 110,
-    doc.y + 3,
+    left + 105,
+    y + 26,
     { width: fullWidth - 110 }
   );
-  doc.x = left;
-  doc.y = Math.max(doc.y, doc.page.margins.top + 38) + 10;
-
-  // --- Продавец / Покупатель ---
-  const colWidth = fullWidth / 2 - 12;
-  const rightX = left + colWidth + 24;
-  let y1 = doc.y;
-  let y2 = doc.y;
-
-  y1 = field("Продавец:", `${seller.fullName} (${sellerLegalFormLabel(seller.legalForm)})`, left, y1, colWidth);
-  y1 = field("Адрес:", seller.legalAddress, left, y1, colWidth);
-  y1 = field(
-    "ИНН/КПП продавца:",
-    `${seller.inn}${seller.kpp ? ` / ${seller.kpp}` : ""}${seller.ogrn ? `, ОГРН ${seller.ogrn}` : ""}`,
-    left,
-    y1,
-    colWidth
+  doc.fontSize(6.5).fillColor("#666666").text(
+    "Приложение № 1 к постановлению Правительства РФ от 26.12.2011 № 1137",
+    left + 105,
+    y + 37,
+    { width: fullWidth - 110 }
   );
-  y1 = field("Грузоотправитель и его адрес:", "он же", left, y1, colWidth);
+  doc.fillColor("black");
+  y += headerHeight;
 
-  y2 = field("Покупатель:", `${buyer.legalName} (${orgFormLabel(buyer.orgForm)})`, rightX, y2, colWidth);
-  y2 = field("Адрес:", buyer.legalAddress, rightX, y2, colWidth);
-  y2 = field("ИНН/КПП покупателя:", `${buyer.inn}${buyer.kpp ? ` / ${buyer.kpp}` : ""}`, rightX, y2, colWidth);
-  y2 = field("Грузополучатель и его адрес:", "он же", rightX, y2, colWidth);
-
-  const row3Y = Math.max(y1, y2) + 8;
-  y1 = field("К платёжно-расчётному документу:", "—", left, row3Y, colWidth);
-  y2 = field("Валюта: наименование, код:", "Российский рубль, 643", rightX, row3Y, colWidth);
-  doc.x = left;
-  doc.y = Math.max(y1, y2) + 4;
-  doc.y = field(
-    "Документ об отгрузке:",
-    `Универсальный передаточный документ № ${updNumber} от ${fmtDate(order.createdAt)}`,
-    left,
-    doc.y,
-    fullWidth
+  // Продавец / Покупатель, построчно, с общей рамкой и разбивкой по графам.
+  y = formRow(
+    [
+      { label: "Продавец", code: "2", value: `${seller.fullName} (${sellerLegalFormLabel(seller.legalForm)})`, width: colWidth },
+      { label: "Покупатель", code: "6", value: `${buyer.legalName} (${orgFormLabel(buyer.orgForm)})`, width: colWidth },
+    ],
+    y
   );
-  doc.x = left;
-  doc.y += 6;
+  y = formRow(
+    [
+      { label: "Адрес", code: "2а", value: seller.legalAddress, width: colWidth },
+      { label: "Адрес", code: "6а", value: buyer.legalAddress, width: colWidth },
+    ],
+    y
+  );
+  y = formRow(
+    [
+      {
+        label: "ИНН/КПП продавца",
+        code: "2б",
+        value: `${seller.inn}${seller.kpp ? ` / ${seller.kpp}` : ""}${seller.ogrn ? `, ОГРН ${seller.ogrn}` : ""}`,
+        width: colWidth,
+      },
+      { label: "ИНН/КПП покупателя", code: "6б", value: `${buyer.inn}${buyer.kpp ? ` / ${buyer.kpp}` : ""}`, width: colWidth },
+    ],
+    y
+  );
+  y = formRow(
+    [
+      { label: "Грузоотправитель и его адрес", code: "3", value: "он же", width: colWidth },
+      { label: "Грузополучатель и его адрес", code: "4", value: "он же", width: colWidth },
+    ],
+    y
+  );
+  y = formRow(
+    [
+      { label: "К платёжно-расчётному документу", code: "5", value: "—", width: colWidth },
+      { label: "Валюта: наименование, код", code: "7", value: "Российский рубль, 643", width: colWidth },
+    ],
+    y
+  );
+  y = formRow(
+    [
+      {
+        label: "Документ об отгрузке",
+        code: "5а",
+        value: `Универсальный передаточный документ № ${updNumber} от ${fmtDate(order.createdAt)}`,
+        width: fullWidth,
+      },
+      null,
+    ],
+    y
+  );
 
-  // --- Таблица позиций ---
-  const tableX = left;
-  const tableY = doc.y;
+  // Внешняя рамка и разделительная вертикаль по всему блоку реквизитов.
+  doc.rect(left, formTop, fullWidth, y - formTop).strokeColor("#333333").lineWidth(0.75).stroke();
+  doc.moveTo(left + colWidth + 1, formTop + headerHeight).lineTo(left + colWidth + 1, y).stroke();
+
+  doc.x = left;
+  doc.y = y + 8;
+
+  // --- Таблица позиций: графы и коды граф как в официальном бланке ---
   const columns = [
-    { header: "№", width: 14 },
-    { header: "Наименование товара", width: 208 },
-    { header: "Арт.", width: 48 },
-    { header: "Код", width: 26, align: "center" as const },
-    { header: "Ед.", width: 24, align: "center" as const },
-    { header: "Кол-во", width: 34, align: "right" as const },
-    { header: "Цена", width: 44, align: "right" as const },
-    { header: "Без НДС", width: 56, align: "right" as const },
-    { header: "Акциз", width: 52, align: "center" as const },
-    { header: "Ставка", width: 40, align: "right" as const },
-    { header: "НДС", width: 48, align: "right" as const },
-    { header: "С НДС", width: 54, align: "right" as const },
-    { header: "Страна", width: 34, align: "center" as const },
-    { header: "Рег.№", width: 36, align: "center" as const },
+    { code: "А", header: "Код товара", width: 24, align: "center" as const },
+    { code: "1", header: "№ п/п", width: 16, align: "center" as const },
+    { code: "1а", header: "Наименование товара", width: 186, align: "left" as const },
+    { code: "1б", header: "Код вида товара", width: 30, align: "center" as const },
+    { code: "2", header: "Ед. изм., код", width: 24, align: "center" as const },
+    { code: "2а", header: "Ед. изм., усл. обозн.", width: 28, align: "center" as const },
+    { code: "3", header: "Кол-во", width: 32, align: "right" as const },
+    { code: "4", header: "Цена за ед.", width: 42, align: "right" as const },
+    { code: "5", header: "Стоимость без налога", width: 56, align: "right" as const },
+    { code: "6", header: "В т.ч. акциз", width: 46, align: "center" as const },
+    { code: "7", header: "Ставка налога", width: 34, align: "right" as const },
+    { code: "8", header: "Сумма налога", width: 48, align: "right" as const },
+    { code: "9", header: "Стоимость с налогом", width: 52, align: "right" as const },
+    { code: "10", header: "Страна, код", width: 26, align: "center" as const },
+    { code: "10а", header: "Страна, назв.", width: 30, align: "center" as const },
+    { code: "11", header: "Рег. № декларации", width: 40, align: "center" as const },
   ];
-  const rows = items.map((item, i) => {
+  const tableWidth = columns.reduce((s, c) => s + c.width, 0);
+  const tableX = left;
+
+  function drawGridRow(cells: string[], y0: number, rowHeight: number, bold: boolean, fontSize: number) {
+    let cx = tableX;
+    doc.font(bold ? "Bold" : "Regular").fontSize(fontSize);
+    columns.forEach((col, i) => {
+      doc.text(cells[i] ?? "", cx + 2, y0 + 2, { width: col.width - 4, align: col.align });
+      cx += col.width;
+    });
+  }
+
+  function drawGridLines(y0: number, y1: number) {
+    let cx = tableX;
+    doc.strokeColor("#999999").lineWidth(0.5);
+    doc.moveTo(cx, y0).lineTo(cx, y1).stroke();
+    for (const col of columns) {
+      cx += col.width;
+      doc.moveTo(cx, y0).lineTo(cx, y1).stroke();
+    }
+    doc.moveTo(tableX, y1).lineTo(tableX + tableWidth, y1).stroke();
+    doc.strokeColor("black");
+  }
+
+  // Заголовок таблицы: строка названий граф + строка кодов граф.
+  let ty = doc.y;
+  const headerTextRowH = 30;
+  const headerCodeRowH = 11;
+  doc.moveTo(tableX, ty).lineTo(tableX + tableWidth, ty).strokeColor("#999999").lineWidth(0.5).stroke();
+  let cx = tableX;
+  doc.font("Bold").fontSize(6.5);
+  columns.forEach((col) => {
+    doc.text(col.header, cx + 2, ty + 2, { width: col.width - 4, align: "center" });
+    cx += col.width;
+  });
+  cx = tableX;
+  doc.font("Regular").fontSize(7);
+  columns.forEach((col) => {
+    doc.text(col.code, cx + 2, ty + headerTextRowH, { width: col.width - 4, align: "center" });
+    cx += col.width;
+  });
+  drawGridLines(ty, ty + headerTextRowH + headerCodeRowH);
+  ty += headerTextRowH + headerCodeRowH;
+
+  const pageBottom = doc.page.height - doc.page.margins.bottom;
+  for (const [i, item] of items.entries()) {
     const lineWithoutVat = seller.vatRate ? item.lineTotal / (1 + seller.vatRate / 100) : item.lineTotal;
     const lineVat = item.lineTotal - lineWithoutVat;
-    return [
-      String(i + 1),
-      item.name,
-      item.article,
+    const cells = [
       "-",
+      String(i + 1),
+      `${item.name} (арт. ${item.article})`,
+      "-",
+      "796",
       "уп.",
       String(item.packages),
       money(item.unitPrice),
@@ -185,12 +286,21 @@ export function renderUpdPdf(
       money(item.lineTotal),
       "-",
       "-",
+      "-",
     ];
-  });
-  const afterTableY = drawTable(doc, tableX, tableY, columns, rows);
+    doc.font("Regular").fontSize(7.5);
+    const rowHeight = Math.max(16, ...columns.map((col, ci) => doc.heightOfString(cells[ci] ?? "", { width: col.width - 4 }) + 4));
+    if (ty + rowHeight > pageBottom) {
+      doc.addPage();
+      ty = doc.page.margins.top;
+    }
+    drawGridRow(cells, ty, rowHeight, false, 7.5);
+    drawGridLines(ty, ty + rowHeight);
+    ty += rowHeight;
+  }
 
   doc.x = left;
-  doc.y = afterTableY + 8;
+  doc.y = ty + 8;
   doc.font("Bold").fontSize(9);
   doc.text(`Итого: без НДС ${money(totalWithoutVat)}, НДС ${money(totalVat)}, с НДС ${money(totalWithVat)}`, left, doc.y, {
     width: fullWidth,
