@@ -50,7 +50,7 @@ export async function getCart(sessionId: string): Promise<CartSummary> {
   });
 
   const total = items.reduce((sum, i) => sum + i.lineTotal, 0);
-  const amountToNextDiscount = amountToZeroMarkup(baseSum, markup);
+  const amountToNextDiscount = amountToZeroMarkup(total);
 
   return { items, discountPercent, total, amountToNextDiscount };
 }

@@ -86,6 +86,9 @@ export default function OrderPage() {
                   <p className="text-xs text-muted">
                     Артикул {item.article} · {item.packageSize} шт. в уп.
                   </p>
+                  <p className="mt-1 text-xs font-medium text-brand">
+                    {item.unitPrice.toLocaleString("ru-RU", { maximumFractionDigits: 2 })} ₽/шт.
+                  </p>
                 </div>
                 <div className="flex items-center gap-2">
                   <button

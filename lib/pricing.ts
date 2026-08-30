@@ -26,8 +26,13 @@ export function discountFromMarkup(markup: number): number {
   return 1 - (1 + markup) / (1 + MIN_MARKUP);
 }
 
-/** Сколько ещё нужно добавить (по базовым ценам, в пересчёте на текущие цены), чтобы наценка стала нулевой. */
-export function amountToZeroMarkup(baseSum: number, markup: number): number {
-  const remainingBaseSum = Math.max(0, ZERO_MARKUP_THRESHOLD - baseSum);
-  return remainingBaseSum * (1 + markup);
+/**
+ * Сколько ещё не хватает до суммы к оплате, при которой наценка обнулится.
+ * Точная (не приближённая) формула: при сумме по базовым ценам ровно
+ * 100 000 ₽ наценка = 0, а значит и итог к оплате в этой точке ВСЕГДА
+ * равен ровно 100 000 ₽, независимо от состава корзины — поэтому просто
+ * вычитаем текущий итог из порога, без пересчёта через наценку.
+ */
+export function amountToZeroMarkup(total: number): number {
+  return Math.max(0, ZERO_MARKUP_THRESHOLD - total);
 }
