@@ -67,6 +67,7 @@ export async function getSessionReservations(sessionId: string): Promise<Reserva
   const rows = await sql`
     SELECT article, quantity FROM reservations
     WHERE session_id = ${sessionId} AND (confirmed OR expires_at > now())
+    ORDER BY id ASC
   `;
   return rows.map((r) => ({ article: r.article as string, quantity: Number(r.quantity) }));
 }

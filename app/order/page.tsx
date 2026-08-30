@@ -133,7 +133,7 @@ export default function OrderPage() {
             )}
             {amountToNextDiscount > 0 && (
               <p className="text-xs text-muted">
-                До следующей скидки не хватает{" "}
+                До максимальной скидки не хватает{" "}
                 {amountToNextDiscount.toLocaleString("ru-RU", { maximumFractionDigits: 0 })} ₽
               </p>
             )}
