@@ -4,6 +4,7 @@ import { requireRole, getUserById } from "@/lib/auth";
 import { getAllOrders } from "@/lib/db";
 import { getSellers } from "@/lib/sellers";
 import MarkSoldButton from "./MarkSoldButton";
+import ProcessedToggle from "./ProcessedToggle";
 
 const STATUS_LABEL: Record<string, string> = {
   reserved: "Ожидает оплаты",
@@ -28,6 +29,9 @@ export default async function AdminOrdersPage() {
           <Link href="/admin/stock" className="text-sm font-medium text-brand hover:underline">
             Остатки →
           </Link>
+          <Link href="/admin/returns" className="text-sm font-medium text-brand hover:underline">
+            Возвраты →
+          </Link>
           {staff.role === "administrator" && (
             <Link href="/admin/sellers" className="text-sm font-medium text-brand hover:underline">
               Юрлица →
@@ -50,13 +54,16 @@ export default async function AdminOrdersPage() {
                 <p className="font-medium">
                   Заказ №{order.id} — {buyer?.legalName ?? "покупатель не найден"}
                 </p>
-                <span
-                  className={`rounded-full px-3 py-1 text-xs font-medium ${
-                    order.status === "sold" ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"
-                  }`}
-                >
-                  {STATUS_LABEL[order.status] ?? order.status}
-                </span>
+                <div className="flex items-center gap-3">
+                  <ProcessedToggle orderId={order.id} processed={order.processed} />
+                  <span
+                    className={`rounded-full px-3 py-1 text-xs font-medium ${
+                      order.status === "sold" ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"
+                    }`}
+                  >
+                    {STATUS_LABEL[order.status] ?? order.status}
+                  </span>
+                </div>
               </div>
               <p className="mt-1 text-xs text-muted">
                 {new Date(order.createdAt).toLocaleString("ru-RU", {

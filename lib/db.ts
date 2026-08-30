@@ -153,6 +153,8 @@ export type OrderRow = {
   total: number;
   status: string;
   paymentDueAt: string | null;
+  /** Внутренняя отметка бухгалтера — не влияет на статус/склад/УПД. */
+  processed: boolean;
   createdAt: string;
 };
 
@@ -165,13 +167,14 @@ function mapOrderRow(r: Record<string, unknown>): OrderRow {
     total: Number(r.total),
     status: r.status as string,
     paymentDueAt: r.payment_due_at as string | null,
+    processed: Boolean(r.processed),
     createdAt: r.created_at as string,
   };
 }
 
 export async function getUserOrders(userId: number): Promise<OrderRow[]> {
   const rows = await sql`
-    SELECT id, user_id, items, discount_percent, total, status, payment_due_at, created_at
+    SELECT id, user_id, items, discount_percent, total, status, payment_due_at, processed, created_at
     FROM orders WHERE user_id = ${userId} ORDER BY created_at DESC
   `;
   return rows.map(mapOrderRow);
@@ -179,10 +182,14 @@ export async function getUserOrders(userId: number): Promise<OrderRow[]> {
 
 export async function getOrderById(id: number): Promise<OrderRow | null> {
   const rows = await sql`
-    SELECT id, user_id, items, discount_percent, total, status, payment_due_at, created_at
+    SELECT id, user_id, items, discount_percent, total, status, payment_due_at, processed, created_at
     FROM orders WHERE id = ${id}
   `;
   return rows[0] ? mapOrderRow(rows[0]) : null;
+}
+
+export async function setOrderProcessed(orderId: number, processed: boolean): Promise<void> {
+  await sql`UPDATE orders SET processed = ${processed} WHERE id = ${orderId}`;
 }
 
 /**
@@ -257,7 +264,7 @@ export async function getOrAssignUpdNumber(orderId: number, sellerId: number): P
 
 export async function getAllOrders(): Promise<OrderRow[]> {
   const rows = await sql`
-    SELECT id, user_id, items, discount_percent, total, status, payment_due_at, created_at
+    SELECT id, user_id, items, discount_percent, total, status, payment_due_at, processed, created_at
     FROM orders ORDER BY created_at DESC
   `;
   return rows.map(mapOrderRow);
@@ -280,4 +287,105 @@ export async function markOrderSold(orderId: number): Promise<OrderRow | null> {
     await getOrAssignUpdNumber(order.id, sellerId);
   }
   return order;
+}
+
+/** Юрлица не имеют отношения к покупателям, покупавшим хоть что-то проданное — для выбора в форме возврата. */
+export async function getBuyersWithSoldOrders(): Promise<{ id: number; name: string; email: string }[]> {
+  const rows = await sql`
+    SELECT DISTINCT u.id, u.name, u.email FROM users u
+    JOIN orders o ON o.user_id = u.id
+    WHERE o.status = 'sold'
+    ORDER BY u.name
+  `;
+  return rows.map((r) => ({ id: Number(r.id), name: r.name as string, email: r.email as string }));
+}
+
+async function getPurchasedQuantity(userId: number, article: string): Promise<number> {
+  const rows = await sql`
+    SELECT COALESCE(SUM((item->>'packages')::int), 0) AS total
+    FROM orders, jsonb_array_elements(items) AS item
+    WHERE orders.user_id = ${userId} AND orders.status = 'sold' AND item->>'article' = ${article}
+  `;
+  return Number(rows[0].total);
+}
+
+async function getReturnedQuantity(userId: number, article: string): Promise<number> {
+  const rows = await sql`
+    SELECT COALESCE(SUM(quantity), 0) AS total FROM returns WHERE user_id = ${userId} AND article = ${article}
+  `;
+  return Number(rows[0].total);
+}
+
+export type ReturnRow = {
+  id: number;
+  userId: number;
+  article: string;
+  quantity: number;
+  buyerDocumentNumber: string;
+  buyerDocumentDate: string | null;
+  createdAt: string;
+};
+
+export async function getAllReturns(): Promise<ReturnRow[]> {
+  const rows = await sql`
+    SELECT id, user_id, article, quantity, buyer_document_number, buyer_document_date, created_at
+    FROM returns ORDER BY created_at DESC
+  `;
+  return rows.map((r) => ({
+    id: Number(r.id),
+    userId: Number(r.user_id),
+    article: r.article as string,
+    quantity: Number(r.quantity),
+    buyerDocumentNumber: r.buyer_document_number as string,
+    buyerDocumentDate: r.buyer_document_date as string | null,
+    createdAt: r.created_at as string,
+  }));
+}
+
+export type NewReturn = {
+  userId: number;
+  article: string;
+  quantity: number;
+  buyerDocumentNumber: string;
+  buyerDocumentDate: string | null;
+  createdBy: number;
+};
+
+/**
+ * Записывает возврат от покупателя и приходует товар на склад. Покупатель
+ * в этой операции выступает "поставщиком" — номер документа его
+ * собственный, не из нашего счётчика. Атомарно проверяет, что запрошенное
+ * количество не превышает то, что этот покупатель когда-либо купил по
+ * проданным заказам минус то, что уже было им возвращено ранее — иначе
+ * можно "вернуть" товар, которого не покупали, или вернуть больше, чем
+ * купили.
+ */
+export async function recordReturn(input: NewReturn): Promise<{ ok: true } | { ok: false; error: string }> {
+  const rows = await sql`
+    WITH purchased AS (
+      SELECT COALESCE(SUM((item->>'packages')::int), 0) AS total
+      FROM orders, jsonb_array_elements(items) AS item
+      WHERE orders.user_id = ${input.userId} AND orders.status = 'sold' AND item->>'article' = ${input.article}
+    ),
+    returned AS (
+      SELECT COALESCE(SUM(quantity), 0) AS total FROM returns WHERE user_id = ${input.userId} AND article = ${input.article}
+    )
+    INSERT INTO returns (user_id, article, quantity, buyer_document_number, buyer_document_date, created_by)
+    SELECT ${input.userId}, ${input.article}, ${input.quantity}, ${input.buyerDocumentNumber}, ${input.buyerDocumentDate}, ${input.createdBy}
+    FROM purchased, returned
+    WHERE purchased.total - returned.total >= ${input.quantity}
+    RETURNING id
+  `;
+
+  if (!rows.length) {
+    const purchased = await getPurchasedQuantity(input.userId, input.article);
+    const returned = await getReturnedQuantity(input.userId, input.article);
+    return {
+      ok: false,
+      error: `Куплено (проданных заказов) ${purchased} шт, уже возвращено ${returned} шт — доступно к возврату ${Math.max(0, purchased - returned)} шт, запрошено ${input.quantity}.`,
+    };
+  }
+
+  await sql`UPDATE products SET stock = stock + ${input.quantity} WHERE article = ${input.article}`;
+  return { ok: true };
 }

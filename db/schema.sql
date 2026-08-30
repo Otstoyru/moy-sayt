@@ -103,7 +103,26 @@ CREATE TABLE IF NOT EXISTS orders (
   -- проставляются менеджером (следующая фаза)
   status TEXT NOT NULL DEFAULT 'reserved',
   payment_due_at TIMESTAMPTZ,
+  -- внутренняя отметка бухгалтера "документы сверены/внесены в учёт" —
+  -- не влияет на статус заказа, склад или УПД, чисто для отчётности менеджера
+  processed BOOLEAN NOT NULL DEFAULT false,
   created_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- Возврат товара покупателем. В этой транзакции покупатель выступает
+-- "поставщиком" возврата — номер документа его собственный (внешний,
+-- не наш счётчик). Перед записью возврата проверяется, что запрошенное
+-- количество не превышает (сколько куплено по проданным заказам этого
+-- покупателя по данному артикулу) минус (сколько уже возвращено).
+CREATE TABLE IF NOT EXISTS returns (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id),
+  article TEXT NOT NULL REFERENCES products(article),
+  quantity INTEGER NOT NULL,
+  buyer_document_number TEXT NOT NULL,
+  buyer_document_date DATE,
+  created_by INTEGER REFERENCES users(id),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 -- Сквозной счётчик номеров счёта — свой на каждое юрлицо (не общий на все
