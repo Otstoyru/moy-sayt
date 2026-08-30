@@ -37,6 +37,27 @@ CREATE TABLE IF NOT EXISTS categories (
   group_name TEXT NOT NULL
 );
 
+-- Юрлица/ИП/самозанятые, от чьего имени продаются товары и услуги —
+-- заполняется и редактируется через /admin/sellers, не хардкодится.
+CREATE TABLE IF NOT EXISTS sellers (
+  id SERIAL PRIMARY KEY,
+  legal_form TEXT NOT NULL,        -- 'ooo' | 'ip' | 'self_employed'
+  full_name TEXT NOT NULL,
+  short_name TEXT NOT NULL,
+  inn TEXT NOT NULL,
+  kpp TEXT,
+  ogrn TEXT,
+  legal_address TEXT NOT NULL,
+  phone TEXT,
+  email TEXT,
+  bank_account TEXT,
+  bank_name TEXT,
+  bank_bik TEXT,
+  bank_corr_account TEXT,
+  is_active BOOLEAN NOT NULL DEFAULT true,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 CREATE TABLE IF NOT EXISTS products (
   article TEXT PRIMARY KEY,
   stock         INTEGER NOT NULL,
@@ -45,7 +66,8 @@ CREATE TABLE IF NOT EXISTS products (
   images        JSONB,
   package_size  INTEGER,
   min_price     NUMERIC,
-  category_slug TEXT REFERENCES categories(slug)
+  category_slug TEXT REFERENCES categories(slug),
+  seller_id     INTEGER REFERENCES sellers(id)
 );
 
 CREATE TABLE IF NOT EXISTS reservations (

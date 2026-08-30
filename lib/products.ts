@@ -13,7 +13,15 @@ export type Product = {
   groupName: string;
   categorySlug: string;
   categoryName: string;
+  sellerId: number | null;
 };
+
+const PRODUCT_SELECT = `
+  SELECT p.article, p.name, p.product_type, p.images, p.package_size, p.min_price, p.stock,
+         p.seller_id, c.slug AS category_slug, c.name AS category_name, c.group_slug, c.group_name
+  FROM products p
+  JOIN categories c ON c.slug = p.category_slug
+`;
 
 function mapRow(r: Record<string, unknown>): Product {
   return {
@@ -28,24 +36,19 @@ function mapRow(r: Record<string, unknown>): Product {
     groupName: r.group_name as string,
     categorySlug: r.category_slug as string,
     categoryName: r.category_name as string,
+    sellerId: r.seller_id === null || r.seller_id === undefined ? null : Number(r.seller_id),
   };
 }
 
 export async function getAllProducts(): Promise<Product[]> {
-  const rows = await sql`
-    SELECT p.article, p.name, p.product_type, p.images, p.package_size, p.min_price, p.stock,
-           c.slug AS category_slug, c.name AS category_name, c.group_slug, c.group_name
-    FROM products p
-    JOIN categories c ON c.slug = p.category_slug
-    ORDER BY p.article
-  `;
+  const rows = await sql.query(PRODUCT_SELECT + " ORDER BY p.article");
   return rows.map(mapRow);
 }
 
 export async function getProductsByCategory(categorySlug: string): Promise<Product[]> {
   const rows = await sql`
     SELECT p.article, p.name, p.product_type, p.images, p.package_size, p.min_price, p.stock,
-           c.slug AS category_slug, c.name AS category_name, c.group_slug, c.group_name
+           p.seller_id, c.slug AS category_slug, c.name AS category_name, c.group_slug, c.group_name
     FROM products p
     JOIN categories c ON c.slug = p.category_slug
     WHERE c.slug = ${categorySlug}
@@ -57,7 +60,7 @@ export async function getProductsByCategory(categorySlug: string): Promise<Produ
 export async function getProductByArticle(article: string): Promise<Product | undefined> {
   const rows = await sql`
     SELECT p.article, p.name, p.product_type, p.images, p.package_size, p.min_price, p.stock,
-           c.slug AS category_slug, c.name AS category_name, c.group_slug, c.group_name
+           p.seller_id, c.slug AS category_slug, c.name AS category_name, c.group_slug, c.group_name
     FROM products p
     JOIN categories c ON c.slug = p.category_slug
     WHERE p.article = ${article}

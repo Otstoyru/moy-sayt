@@ -5,7 +5,7 @@ import { useState } from "react";
 import type { Group } from "@/lib/categories";
 import { useOrderList } from "@/components/OrderListProvider";
 
-type HeaderUser = { name: string } | null;
+type HeaderUser = { name: string; role: string } | null;
 
 export default function SiteHeader({ groups, user }: { groups: Group[]; user: HeaderUser }) {
   const { totalCount } = useOrderList();
@@ -39,6 +39,11 @@ export default function SiteHeader({ groups, user }: { groups: Group[]; user: He
         </nav>
 
         <div className="flex items-center gap-3">
+          {user?.role === "administrator" && (
+            <Link href="/admin/sellers" className="hidden text-sm font-medium hover:text-brand lg:block">
+              Админ
+            </Link>
+          )}
           <Link
             href={user ? "/account" : "/login"}
             className="hidden text-sm font-medium hover:text-brand lg:block"

@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { orgFormLabel } from "@/lib/orgForms";
 import { getUserOrders } from "@/lib/db";
+import { getSellers } from "@/lib/sellers";
 import LogoutButton from "./LogoutButton";
 
 const ROLE_LABEL: Record<string, string> = {
@@ -21,7 +22,8 @@ export default async function AccountPage() {
   const user = await getCurrentUser();
   if (!user) redirect("/login?next=/account");
 
-  const orders = await getUserOrders(user.id);
+  const [orders, sellers] = await Promise.all([getUserOrders(user.id), getSellers()]);
+  const sellerById = new Map(sellers.map((s) => [s.id, s]));
 
   return (
     <div className="mx-auto w-full max-w-2xl px-6 py-12">
@@ -29,6 +31,15 @@ export default async function AccountPage() {
         <h1 className="font-display text-3xl font-semibold">Личный кабинет</h1>
         <LogoutButton />
       </div>
+
+      <a
+        href="/api/price-list/pdf"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="mt-4 inline-flex h-10 items-center justify-center rounded-full border border-border px-4 text-sm font-medium hover:border-brand hover:text-brand"
+      >
+        Скачать прайс-лист (PDF)
+      </a>
 
       <dl className="mt-8 space-y-3 text-sm">
         <div>
@@ -155,15 +166,26 @@ export default async function AccountPage() {
                     </span>
                   )}
                 </p>
+                <div className="mt-3 flex flex-wrap gap-3">
+                  {[...new Set(order.items.map((i) => i.sellerId).filter((v): v is number => v !== null))].map(
+                    (sellerId) => (
+                      <a
+                        key={sellerId}
+                        href={`/api/account/orders/${order.id}/invoice?seller=${sellerId}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-sm font-medium text-brand hover:underline"
+                      >
+                        Скачать счёт{sellers.length > 1 ? ` (${sellerById.get(sellerId)?.shortName})` : ""} (PDF)
+                      </a>
+                    )
+                  )}
+                </div>
               </div>
             );
           })}
         </div>
       )}
-
-      <p className="mt-6 text-sm text-muted">
-        Скачивание счёта на оплату появится здесь на следующем этапе.
-      </p>
     </div>
   );
 }

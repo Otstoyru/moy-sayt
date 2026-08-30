@@ -136,9 +136,19 @@ export async function insertOrder(order: NewOrder): Promise<number> {
   return Number(rows[0].id);
 }
 
+export type OrderItemRow = {
+  article: string;
+  name: string;
+  packages: number;
+  unitPrice: number;
+  lineTotal: number;
+  sellerId: number | null;
+};
+
 export type OrderRow = {
   id: number;
-  items: { article: string; name: string; packages: number; unitPrice: number; lineTotal: number }[];
+  userId: number;
+  items: OrderItemRow[];
   discountPercent: number;
   total: number;
   status: string;
@@ -146,18 +156,31 @@ export type OrderRow = {
   createdAt: string;
 };
 
-export async function getUserOrders(userId: number): Promise<OrderRow[]> {
-  const rows = await sql`
-    SELECT id, items, discount_percent, total, status, payment_due_at, created_at
-    FROM orders WHERE user_id = ${userId} ORDER BY created_at DESC
-  `;
-  return rows.map((r) => ({
+function mapOrderRow(r: Record<string, unknown>): OrderRow {
+  return {
     id: Number(r.id),
-    items: r.items ?? [],
+    userId: Number(r.user_id),
+    items: (r.items as OrderItemRow[]) ?? [],
     discountPercent: Number(r.discount_percent),
     total: Number(r.total),
     status: r.status as string,
     paymentDueAt: r.payment_due_at as string | null,
     createdAt: r.created_at as string,
-  }));
+  };
+}
+
+export async function getUserOrders(userId: number): Promise<OrderRow[]> {
+  const rows = await sql`
+    SELECT id, user_id, items, discount_percent, total, status, payment_due_at, created_at
+    FROM orders WHERE user_id = ${userId} ORDER BY created_at DESC
+  `;
+  return rows.map(mapOrderRow);
+}
+
+export async function getOrderById(id: number): Promise<OrderRow | null> {
+  const rows = await sql`
+    SELECT id, user_id, items, discount_percent, total, status, payment_due_at, created_at
+    FROM orders WHERE id = ${id}
+  `;
+  return rows[0] ? mapOrderRow(rows[0]) : null;
 }

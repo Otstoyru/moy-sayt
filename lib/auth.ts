@@ -96,10 +96,22 @@ export async function getCurrentUser(): Promise<User | null> {
   return mapUserRow(rows[0]);
 }
 
+/** Returns the current user if they have one of the given roles, otherwise null. */
+export async function requireRole(roles: Role[]): Promise<User | null> {
+  const user = await getCurrentUser();
+  if (!user || !roles.includes(user.role)) return null;
+  return user;
+}
+
 export async function getUserByEmail(email: string): Promise<(User & { passwordHash: string }) | null> {
   const rows = await sql`SELECT * FROM users WHERE email = ${email}`;
   if (!rows.length) return null;
   return { ...mapUserRow(rows[0]), passwordHash: rows[0].password_hash as string };
+}
+
+export async function getUserById(id: number): Promise<User | null> {
+  const rows = await sql`SELECT * FROM users WHERE id = ${id}`;
+  return rows[0] ? mapUserRow(rows[0]) : null;
 }
 
 export type NewUserInput = {

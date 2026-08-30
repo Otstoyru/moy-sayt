@@ -10,6 +10,7 @@ export type CartLine = {
   packages: number;
   unitPrice: number;
   lineTotal: number;
+  sellerId: number | null;
 };
 
 export type CartSummary = {
@@ -47,6 +48,7 @@ export async function getCart(userId: number): Promise<CartSummary> {
       packages: Math.round(l.quantityUnits / l.product.packageSize),
       unitPrice: price,
       lineTotal: l.quantityUnits * price,
+      sellerId: l.product.sellerId,
     };
   });
 

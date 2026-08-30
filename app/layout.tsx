@@ -34,7 +34,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
     >
       <body className="min-h-full flex flex-col bg-background text-foreground">
         <OrderListProvider>
-          <SiteHeader groups={groups} user={user ? { name: user.name } : null} />
+          <SiteHeader groups={groups} user={user ? { name: user.name, role: user.role } : null} />
           <main className="flex flex-1 flex-col">{children}</main>
           <SiteFooter />
         </OrderListProvider>
