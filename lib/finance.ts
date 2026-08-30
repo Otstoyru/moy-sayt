@@ -79,6 +79,7 @@ export type FinancialTransaction = {
   description: string | null;
   orderId: number | null;
   loanId: number | null;
+  supplierId: number | null;
   occurredAt: string;
   createdAt: string;
 };
@@ -92,6 +93,7 @@ function mapTransaction(r: Record<string, unknown>): FinancialTransaction {
     description: (r.description as string) ?? null,
     orderId: r.order_id === null ? null : Number(r.order_id),
     loanId: r.loan_id === null ? null : Number(r.loan_id),
+    supplierId: r.supplier_id === null || r.supplier_id === undefined ? null : Number(r.supplier_id),
     occurredAt: r.occurred_at as string,
     createdAt: r.created_at as string,
   };
@@ -104,16 +106,17 @@ export type NewTransaction = {
   description: string | null;
   orderId?: number | null;
   loanId?: number | null;
+  supplierId?: number | null;
   createdBy: number;
   occurredAt?: string;
 };
 
 export async function createTransaction(input: NewTransaction): Promise<FinancialTransaction> {
   const rows = await sql`
-    INSERT INTO financial_transactions (account_id, amount, category, description, order_id, loan_id, created_by, occurred_at)
+    INSERT INTO financial_transactions (account_id, amount, category, description, order_id, loan_id, supplier_id, created_by, occurred_at)
     VALUES (
       ${input.accountId}, ${input.amount}, ${input.category}, ${input.description},
-      ${input.orderId ?? null}, ${input.loanId ?? null}, ${input.createdBy},
+      ${input.orderId ?? null}, ${input.loanId ?? null}, ${input.supplierId ?? null}, ${input.createdBy},
       ${input.occurredAt ?? new Date().toISOString().slice(0, 10)}
     )
     RETURNING *

@@ -31,9 +31,14 @@ export default async function AdminFinancePage() {
     <div className="mx-auto w-full max-w-4xl px-6 py-12">
       <div className="flex items-center justify-between">
         <h1 className="font-display text-3xl font-semibold">Финансы</h1>
-        <Link href="/admin/orders" className="text-sm font-medium text-brand hover:underline">
-          Заказы →
-        </Link>
+        <div className="flex items-center gap-4">
+          <Link href="/admin/suppliers" className="text-sm font-medium text-brand hover:underline">
+            Поставщики →
+          </Link>
+          <Link href="/admin/orders" className="text-sm font-medium text-brand hover:underline">
+            Заказы →
+          </Link>
+        </div>
       </div>
 
       <div className="mt-6 rounded-xl border border-border bg-surface p-5">

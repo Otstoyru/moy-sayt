@@ -21,6 +21,7 @@ export const TRANSACTION_CATEGORIES = [
   { value: "loan_given", label: "Выдан займ" },
   { value: "loan_repayment", label: "Погашение займа" },
   { value: "loan_interest", label: "Проценты по займу" },
+  { value: "supplier_payment", label: "Оплата поставщику" },
   { value: "transfer", label: "Перевод между своими счетами" },
   { value: "other", label: "Прочее" },
 ] as const;

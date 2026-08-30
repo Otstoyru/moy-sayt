@@ -40,6 +40,9 @@ export default async function AdminOrdersPage() {
           <Link href="/admin/returns" className="text-sm font-medium text-brand hover:underline">
             Возвраты →
           </Link>
+          <Link href="/admin/suppliers" className="text-sm font-medium text-brand hover:underline">
+            Поставщики →
+          </Link>
           {staff.role === "administrator" && (
             <>
               <Link href="/admin/finance" className="text-sm font-medium text-brand hover:underline">

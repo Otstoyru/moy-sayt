@@ -193,9 +193,38 @@ CREATE TABLE IF NOT EXISTS loans (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+-- Поставщик (в т.ч. собственное производство как контрагент) — расчёты
+-- ведутся в рамках одного юрлица, как и счета/кассы.
+CREATE TABLE IF NOT EXISTS suppliers (
+  id SERIAL PRIMARY KEY,
+  seller_id INTEGER NOT NULL REFERENCES sellers(id),
+  name TEXT NOT NULL,
+  is_active BOOLEAN NOT NULL DEFAULT true,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Приходная накладная от поставщика — создаёт задолженность (amount, сумма
+-- строк items) и сразу увеличивает остаток по каждому артикулу. Деньги при
+-- этом никуда не двигаются — оплата отдельным действием (см. проводку
+-- категории 'supplier_payment' в financial_transactions). Любая позиция —
+-- это обычный товар из каталога сайта (артикул must exist в products),
+-- даже если это комплектующее, а не конечное изделие.
+CREATE TABLE IF NOT EXISTS supplier_receipts (
+  id SERIAL PRIMARY KEY,
+  supplier_id INTEGER NOT NULL REFERENCES suppliers(id),
+  items JSONB NOT NULL,       -- [{article, name, quantity, unitPrice, lineTotal}]
+  amount NUMERIC NOT NULL,    -- = SUM(items[].lineTotal), фиксируется при создании
+  document_number TEXT,
+  document_date DATE,
+  description TEXT,
+  created_by INTEGER REFERENCES users(id),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 -- Проводка дохода/расхода по счёту. amount со знаком: + приход, - расход.
 -- order_id проставляется автоматически при отметке заказа "Продано";
--- loan_id — когда проводка относится к выдаче/погашению/процентам займа.
+-- loan_id — когда проводка относится к выдаче/погашению/процентам займа;
+-- supplier_id — когда проводка это оплата долга поставщику.
 CREATE TABLE IF NOT EXISTS financial_transactions (
   id SERIAL PRIMARY KEY,
   account_id INTEGER NOT NULL REFERENCES financial_accounts(id),
@@ -204,6 +233,7 @@ CREATE TABLE IF NOT EXISTS financial_transactions (
   description TEXT,
   order_id INTEGER REFERENCES orders(id),
   loan_id INTEGER REFERENCES loans(id),
+  supplier_id INTEGER REFERENCES suppliers(id),
   created_by INTEGER REFERENCES users(id),
   occurred_at DATE NOT NULL DEFAULT CURRENT_DATE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
