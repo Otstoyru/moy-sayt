@@ -4,45 +4,37 @@ import Image from "next/image";
 import Link from "next/link";
 import { FormEvent, useState } from "react";
 import { useOrderList } from "@/components/OrderListProvider";
+import { amountToNextDiscount } from "@/lib/pricing";
 
 type Status = "idle" | "submitting" | "success" | "error";
 
 export default function OrderPage() {
-  const { items, removeItem, setQuantity, clear, totalPrice } = useOrderList();
+  const { items, removeItem, setPackages, discountPercent, grossSubtotal, totalPrice, submit } =
+    useOrderList();
   const [status, setStatus] = useState<Status>("idle");
+  const [errorMessage, setErrorMessage] = useState("");
   const [buyerType, setBuyerType] = useState<"retail" | "wholesale">("retail");
+
+  const toNextDiscount = amountToNextDiscount(grossSubtotal);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setStatus("submitting");
 
     const form = event.currentTarget;
-    const data = {
+    const result = await submit({
       name: (form.elements.namedItem("name") as HTMLInputElement).value,
       phone: (form.elements.namedItem("phone") as HTMLInputElement).value,
       email: (form.elements.namedItem("email") as HTMLInputElement).value,
       comment: (form.elements.namedItem("comment") as HTMLTextAreaElement).value,
       buyerType,
-      items: items.map((i) => ({
-        article: i.article,
-        name: i.name,
-        price: i.price,
-        quantity: i.quantity,
-      })),
-      totalPrice,
-    };
+    });
 
-    try {
-      const res = await fetch("/api/order", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      });
-      if (!res.ok) throw new Error("Request failed");
+    if (result.ok) {
       setStatus("success");
-      clear();
       form.reset();
-    } catch {
+    } else {
+      setErrorMessage(result.error);
       setStatus("error");
     }
   }
@@ -87,19 +79,32 @@ export default function OrderPage() {
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium">{item.name}</p>
-                  <p className="text-xs text-muted">Артикул {item.article}</p>
+                  <p className="text-xs text-muted">
+                    Артикул {item.article} · {item.packageSize} шт. в уп.
+                  </p>
                 </div>
-                <input
-                  type="number"
-                  min={1}
-                  value={item.quantity}
-                  onChange={(e) =>
-                    setQuantity(item.article, parseInt(e.target.value, 10) || 1)
-                  }
-                  className="h-9 w-16 rounded-md border border-border px-2 text-center text-sm"
-                />
-                <p className="w-24 shrink-0 text-right text-sm font-medium">
-                  {(item.price * item.quantity).toLocaleString("ru-RU")} ₽
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setPackages(item.article, item.packages - 1)}
+                    className="flex h-8 w-8 items-center justify-center rounded-full border border-border text-sm disabled:opacity-30"
+                    disabled={item.packages <= 1}
+                    aria-label="Меньше"
+                  >
+                    −
+                  </button>
+                  <span className="min-w-[3ch] text-center text-sm">{item.packages} уп.</span>
+                  <button
+                    type="button"
+                    onClick={() => setPackages(item.article, item.packages + 1)}
+                    className="flex h-8 w-8 items-center justify-center rounded-full border border-border text-sm"
+                    aria-label="Больше"
+                  >
+                    +
+                  </button>
+                </div>
+                <p className="w-28 shrink-0 text-right text-sm font-medium">
+                  {item.lineTotal.toLocaleString("ru-RU", { maximumFractionDigits: 0 })} ₽
                 </p>
                 <button
                   type="button"
@@ -113,8 +118,21 @@ export default function OrderPage() {
             ))}
           </div>
 
-          <div className="mt-4 flex justify-end text-lg font-semibold">
-            Итого: {totalPrice.toLocaleString("ru-RU")} ₽
+          <div className="mt-4 flex flex-col items-end gap-1">
+            {discountPercent > 0 && (
+              <p className="text-sm text-accent-green">
+                Скидка за объём заказа: {Math.round(discountPercent * 100)}%
+              </p>
+            )}
+            {toNextDiscount > 0 && (
+              <p className="text-xs text-muted">
+                До следующей скидки не хватает{" "}
+                {toNextDiscount.toLocaleString("ru-RU", { maximumFractionDigits: 0 })} ₽
+              </p>
+            )}
+            <p className="text-lg font-semibold">
+              Итого: {totalPrice.toLocaleString("ru-RU", { maximumFractionDigits: 0 })} ₽
+            </p>
           </div>
 
           <form onSubmit={handleSubmit} className="mt-10 flex flex-col gap-4">
@@ -194,9 +212,7 @@ export default function OrderPage() {
             </div>
 
             {status === "error" && (
-              <p className="text-sm text-red-600">
-                Не удалось отправить заявку. Попробуйте ещё раз.
-              </p>
+              <p className="text-sm text-red-600">{errorMessage}</p>
             )}
 
             <button

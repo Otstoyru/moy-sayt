@@ -63,32 +63,8 @@ export default async function ProductPage({
           </h1>
           <p className="mt-2 text-sm text-muted">Артикул {product.article}</p>
 
-          <div className="mt-6 flex items-baseline gap-3">
-            <span className="font-display text-3xl font-semibold">
-              {product.price.toLocaleString("ru-RU")} ₽
-            </span>
-            {product.oldPrice && (
-              <span className="text-lg text-muted line-through">
-                {product.oldPrice.toLocaleString("ru-RU")} ₽
-              </span>
-            )}
-          </div>
-
-          <p className="mt-2 text-sm">
-            {product.inStock ? (
-              <span className="text-accent-green">В наличии</span>
-            ) : (
-              <span className="text-muted">Под заказ</span>
-            )}
-          </p>
-
           <div className="mt-6">
-            <AddToOrderButton
-              article={product.article}
-              name={product.name}
-              price={product.price}
-              image={product.images[0]}
-            />
+            <AddToOrderButton article={product.article} packageSize={product.packageSize} />
           </div>
 
           <p className="mt-8 text-sm leading-7 text-muted">

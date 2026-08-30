@@ -102,7 +102,7 @@ export default function Home() {
               key={c.slug}
               slug={c.slug}
               name={c.name}
-              shortDescription={`${c.shortDescription} · ${c.count} товаров`}
+              shortDescription={`${c.groupName} · ${c.count} товаров`}
               cover={c.cover}
             />
           ))}

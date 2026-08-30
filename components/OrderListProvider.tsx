@@ -10,94 +10,133 @@ import {
   ReactNode,
 } from "react";
 
-export type OrderItem = {
+export type CartLine = {
   article: string;
   name: string;
-  price: number;
   image: string;
-  quantity: number;
+  packageSize: number;
+  packages: number;
+  unitPrice: number;
+  lineTotal: number;
 };
 
+type SetPackagesResult = { ok: true } | { ok: false; availablePackages: number };
+
 type OrderListContextValue = {
-  items: OrderItem[];
-  addItem: (item: Omit<OrderItem, "quantity">, quantity?: number) => void;
-  removeItem: (article: string) => void;
-  setQuantity: (article: string, quantity: number) => void;
-  clear: () => void;
-  totalCount: number;
+  items: CartLine[];
+  loading: boolean;
+  discountPercent: number;
+  grossSubtotal: number;
   totalPrice: number;
+  totalCount: number;
+  setPackages: (article: string, packages: number) => Promise<SetPackagesResult>;
+  removeItem: (article: string) => Promise<void>;
+  refresh: () => Promise<void>;
+  submit: (fields: {
+    name: string;
+    phone: string;
+    email?: string;
+    comment?: string;
+    buyerType: string;
+  }) => Promise<{ ok: true } | { ok: false; error: string }>;
 };
 
 const OrderListContext = createContext<OrderListContextValue | null>(null);
 
-const STORAGE_KEY = "ruskist-order-list";
+type CartResponse = {
+  items: CartLine[];
+  discountPercent: number;
+  grossSubtotal: number;
+  total: number;
+};
 
 export function OrderListProvider({ children }: { children: ReactNode }) {
-  const [items, setItems] = useState<OrderItem[]>([]);
-  const [hydrated, setHydrated] = useState(false);
+  const [cart, setCart] = useState<CartResponse>({
+    items: [],
+    discountPercent: 0,
+    grossSubtotal: 0,
+    total: 0,
+  });
+  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    try {
-      const raw = window.localStorage.getItem(STORAGE_KEY);
-      if (raw) setItems(JSON.parse(raw));
-    } catch {
-      // ignore
-    }
-    setHydrated(true);
+  const refresh = useCallback(async () => {
+    const res = await fetch("/api/cart");
+    if (res.ok) setCart(await res.json());
   }, []);
 
   useEffect(() => {
-    if (!hydrated) return;
-    try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
-    } catch {
-      // ignore
-    }
-  }, [items, hydrated]);
+    refresh().finally(() => setLoading(false));
+  }, [refresh]);
 
-  const addItem = useCallback(
-    (item: Omit<OrderItem, "quantity">, quantity = 1) => {
-      setItems((prev) => {
-        const existing = prev.find((i) => i.article === item.article);
-        if (existing) {
-          return prev.map((i) =>
-            i.article === item.article
-              ? { ...i, quantity: i.quantity + quantity }
-              : i
-          );
-        }
-        return [...prev, { ...item, quantity }];
+  const setPackages = useCallback(
+    async (article: string, packages: number): Promise<SetPackagesResult> => {
+      const res = await fetch("/api/cart/items", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ article, packages }),
       });
+      if (res.status === 409) {
+        const data = await res.json();
+        return { ok: false, availablePackages: data.availablePackages ?? 0 };
+      }
+      if (res.ok) {
+        setCart(await res.json());
+        return { ok: true };
+      }
+      return { ok: false, availablePackages: 0 };
     },
     []
   );
 
-  const removeItem = useCallback((article: string) => {
-    setItems((prev) => prev.filter((i) => i.article !== article));
-  }, []);
+  const removeItem = useCallback(
+    async (article: string) => {
+      await setPackages(article, 0);
+    },
+    [setPackages]
+  );
 
-  const setQuantity = useCallback((article: string, quantity: number) => {
-    setItems((prev) =>
-      prev.map((i) =>
-        i.article === article ? { ...i, quantity: Math.max(1, quantity) } : i
-      )
-    );
-  }, []);
-
-  const clear = useCallback(() => setItems([]), []);
+  const submit = useCallback(
+    async (fields: {
+      name: string;
+      phone: string;
+      email?: string;
+      comment?: string;
+      buyerType: string;
+    }) => {
+      const res = await fetch("/api/cart/submit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(fields),
+      });
+      if (res.ok) {
+        await refresh();
+        return { ok: true as const };
+      }
+      const data = await res.json().catch(() => ({}));
+      return { ok: false as const, error: data.error ?? "Не удалось отправить заявку" };
+    },
+    [refresh]
+  );
 
   const totalCount = useMemo(
-    () => items.reduce((sum, i) => sum + i.quantity, 0),
-    [items]
-  );
-  const totalPrice = useMemo(
-    () => items.reduce((sum, i) => sum + i.quantity * i.price, 0),
-    [items]
+    () => cart.items.reduce((sum, i) => sum + i.packages, 0),
+    [cart.items]
   );
 
   const value = useMemo(
-    () => ({ items, addItem, removeItem, setQuantity, clear, totalCount, totalPrice }),
-    [items, addItem, removeItem, setQuantity, clear, totalCount, totalPrice]
+    () => ({
+      items: cart.items,
+      loading,
+      discountPercent: cart.discountPercent,
+      grossSubtotal: cart.grossSubtotal,
+      totalPrice: cart.total,
+      totalCount,
+      setPackages,
+      removeItem,
+      refresh,
+      submit,
+    }),
+    [cart, loading, totalCount, setPackages, removeItem, refresh, submit]
   );
 
   return (

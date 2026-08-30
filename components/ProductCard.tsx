@@ -2,11 +2,31 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { useState } from "react";
 import { Product } from "@/lib/products";
 import { useOrderList } from "@/components/OrderListProvider";
 
 export default function ProductCard({ product }: { product: Product }) {
-  const { addItem } = useOrderList();
+  const { items, setPackages } = useOrderList();
+  const [pending, setPending] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
+
+  const current = items.find((i) => i.article === product.article)?.packages ?? 0;
+  const outOfStock = product.stock <= 0;
+
+  async function handleAdd() {
+    setPending(true);
+    setNotice(null);
+    const result = await setPackages(product.article, current + 1);
+    if (!result.ok) {
+      setNotice(
+        result.availablePackages > 0
+          ? `Доступно только ${result.availablePackages} уп.`
+          : "Товар закончился"
+      );
+    }
+    setPending(false);
+  }
 
   return (
     <div className="group flex flex-col overflow-hidden rounded-xl border border-border bg-surface transition-shadow hover:shadow-md">
@@ -21,7 +41,7 @@ export default function ProductCard({ product }: { product: Product }) {
           sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
           className="object-contain p-2 transition-transform duration-300 group-hover:scale-105"
         />
-        {!product.inStock && (
+        {outOfStock && (
           <span className="absolute left-2 top-2 rounded-full bg-foreground/80 px-2 py-1 text-[11px] font-medium text-white">
             Под заказ
           </span>
@@ -34,32 +54,20 @@ export default function ProductCard({ product }: { product: Product }) {
         >
           {product.name}
         </Link>
-        <p className="text-xs text-muted">Артикул {product.article}</p>
-        <div className="mt-auto flex items-center justify-between gap-2 pt-2">
-          <div>
-            <span className="font-display text-lg font-semibold text-foreground">
-              {product.price.toLocaleString("ru-RU")} ₽
-            </span>
-            {product.oldPrice && (
-              <span className="ml-2 text-xs text-muted line-through">
-                {product.oldPrice.toLocaleString("ru-RU")} ₽
-              </span>
-            )}
-          </div>
-        </div>
+        <p className="text-xs text-muted">
+          Артикул {product.article} · упаковка {product.packageSize} шт.
+        </p>
+        {current > 0 && (
+          <p className="text-xs font-medium text-brand">В заказе: {current} уп.</p>
+        )}
+        {notice && <p className="text-xs text-red-600">{notice}</p>}
         <button
           type="button"
-          onClick={() =>
-            addItem({
-              article: product.article,
-              name: product.name,
-              price: product.price,
-              image: product.images[0],
-            })
-          }
-          className="mt-2 inline-flex h-9 items-center justify-center rounded-full bg-foreground text-sm font-medium text-background transition-colors hover:bg-brand"
+          disabled={outOfStock || pending}
+          onClick={handleAdd}
+          className="mt-auto inline-flex h-9 items-center justify-center rounded-full bg-foreground text-sm font-medium text-background transition-colors hover:bg-brand disabled:cursor-not-allowed disabled:opacity-40"
         >
-          Добавить к заказу
+          {outOfStock ? "Под заказ" : "Добавить упаковку"}
         </button>
       </div>
     </div>

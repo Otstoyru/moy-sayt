@@ -42,3 +42,6 @@ next-env.d.ts
 
 # unrelated project synced into this folder by OneDrive
 /Otstoy/
+
+# Claude Code local session state
+/.claude/

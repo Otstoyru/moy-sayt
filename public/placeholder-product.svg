@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400">
+  <rect width="400" height="400" fill="#f3f1ec"/>
+  <g stroke="#c9c2b3" stroke-width="2" fill="none">
+    <rect x="90" y="120" width="220" height="160" rx="10"/>
+    <circle cx="150" cy="170" r="20"/>
+    <path d="M100 260 L165 195 L215 235 L260 190 L300 260 Z"/>
+  </g>
+  <text x="200" y="320" font-family="Arial, sans-serif" font-size="16" fill="#9a9384" text-anchor="middle">Фото уточняется</text>
+</svg>

@@ -2,15 +2,15 @@ import rawProducts from "@/data/products.json";
 import { categories } from "@/lib/categories";
 
 export type Product = {
-  id: number;
   article: string;
-  sku: number;
   name: string;
-  price: number;
-  oldPrice: number | null;
+  productType: string;
   images: string[];
-  inStock: boolean;
-  status: string;
+  packageSize: number;
+  minPrice: number;
+  stock: number;
+  groupSlug: string;
+  groupName: string;
   categorySlug: string;
   categoryName: string;
 };
@@ -77,6 +77,11 @@ const MATERIALS: { match: RegExp; label: string; blurb: string }[] = [
     blurb:
       "прочное синтетическое волокно, устойчивое к влаге и не теряющее форму при интенсивном использовании",
   },
+  {
+    match: /бук|дуб|ясень/i,
+    label: "натуральное дерево",
+    blurb: "массив дерева (бук, дуб или ясень) с защитным восковым покрытием",
+  },
 ];
 
 export function detectMaterial(name: string) {
@@ -106,7 +111,7 @@ export function generateDescription(product: Product): string {
   }
 
   sentences.push(
-    `Артикул ${product.article}. Мы производим щёточные изделия более 10 лет и контролируем качество на каждом этапе — от подбора сырья до финальной сборки.`
+    `Артикул ${product.article}. Упаковка — ${product.packageSize} шт. Мы производим щёточные изделия более 10 лет и контролируем качество на каждом этапе — от подбора сырья до финальной сборки.`
   );
 
   return sentences.join(" ");

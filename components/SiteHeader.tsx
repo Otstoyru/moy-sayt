@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { categories } from "@/lib/categories";
+import { groups } from "@/lib/categories";
 import { useOrderList } from "@/components/OrderListProvider";
 
 export default function SiteHeader() {
@@ -80,13 +80,9 @@ export default function SiteHeader() {
 
       <div className="hidden border-t border-border/70 bg-background/60 lg:block">
         <div className="mx-auto flex max-w-6xl flex-wrap gap-x-5 gap-y-2 px-6 py-2.5 text-[13px] text-muted">
-          {categories.map((c) => (
-            <Link
-              key={c.slug}
-              href={`/catalog/${c.slug}`}
-              className="hover:text-brand"
-            >
-              {c.name}
+          {groups.map((g) => (
+            <Link key={g.slug} href={`/catalog#${g.slug}`} className="hover:text-brand">
+              {g.name}
             </Link>
           ))}
         </div>
