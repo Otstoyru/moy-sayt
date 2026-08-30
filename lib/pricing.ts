@@ -2,58 +2,61 @@ const TIER = 10_000;
 const MAX_STEPS = 10;
 const STEP_RATIO = 1.05;
 
+function bracketRatio(bracket: number): number {
+  return STEP_RATIO ** (MAX_STEPS - bracket);
+}
+
 /**
- * Порог скидки определяется суммой, которую клиент РЕАЛЬНО ПЛАТИТ — но
- * сама эта сумма зависит от скидки (самоссылка). Разрешаем это аналитически:
- * "сумма по базовым (минимальным) ценам" не зависит от скидки и растёт
- * вместе с ней монотонно быстрее порога, поэтому нужный уровень скидки —
- * это наибольший шаг d, для которого суммы по базовым ценам уже достаточно.
- * Сверено с примером ценообразования (11 точек, расхождение 0).
+ * Маржинальное ценообразование (как ступени НДФЛ): скидка каждого
+ * следующего порога 10 000 ₽ применяется только к той части суммы заказа
+ * (по базовым/минимальным ценам), которая попадает именно в этот диапазон,
+ * а не ко всей сумме сразу. Раньше скидка была "всё или ничего" по шагам —
+ * это давало математически корректный, но контр-интуитивный эффект: сумма
+ * к оплате могла СКАЧКОМ УМЕНЬШИТЬСЯ при пересечении порога (это же видно
+ * и в исходном примере ценообразования на границе 37→38 упаковок). Здесь
+ * такого разрыва нет по построению: итог — это сумма по всем диапазонам,
+ * каждый из которых вносит неотрицательный вклад, поэтому общая сумма
+ * строго монотонно растёт вместе с объёмом заказа.
  */
-function requiredBaseSum(step: number): number {
-  return (step * TIER) / STEP_RATIO ** (MAX_STEPS - step);
+function paidTotalForBaseSum(baseSum: number): number {
+  let total = 0;
+  let remaining = baseSum;
+  for (let bracket = 0; bracket < MAX_STEPS && remaining > 0; bracket++) {
+    const portion = Math.min(remaining, TIER);
+    total += portion * bracketRatio(bracket);
+    remaining -= portion;
+  }
+  if (remaining > 0) {
+    total += remaining; // свыше 100 000 ₽ по базовым ценам — уже по минимальной цене
+  }
+  return total;
 }
 
-export function resolveDiscountStep(baseSum: number): number {
-  let step = 0;
-  for (let d = MAX_STEPS; d >= 0; d--) {
-    if (baseSum >= requiredBaseSum(d)) {
-      step = d;
-      break;
-    }
-  }
+const MAX_MULTIPLIER = STEP_RATIO ** MAX_STEPS;
 
-  // На границе шагов возможен парадокс: сумма к оплате на текущей скидке
-  // уже перевалила за следующий круглый порог, хотя сумма по базовым ценам
-  // до него чуть-чуть не дотягивает. В этом случае отдаём клиенту скидку
-  // следующего шага — эта сумма и оправдывает более глубокую скидку.
-  while (step < MAX_STEPS) {
-    const total = baseSum * STEP_RATIO ** (MAX_STEPS - step);
-    const threshold = (step + 1) * TIER;
-    if (total >= threshold) {
-      step += 1;
-    } else {
-      break;
-    }
-  }
-
-  return step;
+/** Средневзвешенный коэффициент цены (unitPrice = minPrice * multiplier) для данной суммы по базовым ценам. */
+export function effectiveMultiplier(baseSum: number): number {
+  if (baseSum <= 0) return MAX_MULTIPLIER;
+  return paidTotalForBaseSum(baseSum) / baseSum;
 }
 
-export function discountForStep(step: number): number {
-  return 1 - STEP_RATIO ** -step;
+/** Скидка в процентах — относительно МАКСИМАЛЬНОЙ (недисконтированной) цены, а не относительно минимальной. */
+export function discountFromMultiplier(multiplier: number): number {
+  return 1 - multiplier / MAX_MULTIPLIER;
 }
 
 export function maxPrice(minPrice: number): number {
-  return minPrice * STEP_RATIO ** MAX_STEPS;
+  return minPrice * MAX_MULTIPLIER;
 }
 
-export function unitPriceForStep(minPrice: number, step: number): number {
-  return minPrice * STEP_RATIO ** (MAX_STEPS - step);
+export function unitPrice(minPrice: number, multiplier: number): number {
+  return minPrice * multiplier;
 }
 
-/** Ближайший круглый порог (10 000 / 20 000 / … / 100 000) суммы к оплате. */
-export function nextThresholdAmount(step: number): number | null {
-  if (step >= MAX_STEPS) return null;
-  return (step + 1) * TIER;
+/** Сколько ещё нужно добавить (по базовым ценам, в пересчёте на текущие цены), чтобы полностью выбрать текущий диапазон и перейти к более дешёвому. */
+export function amountToNextBracket(baseSum: number, multiplier: number): number {
+  if (baseSum >= MAX_STEPS * TIER) return 0;
+  const currentBracket = Math.floor(baseSum / TIER);
+  const remainingBaseSum = (currentBracket + 1) * TIER - baseSum;
+  return remainingBaseSum * multiplier;
 }
