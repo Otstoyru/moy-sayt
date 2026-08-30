@@ -33,6 +33,9 @@ export default async function AdminSellersPage() {
           <Link href="/admin/orders" className="text-sm font-medium text-brand hover:underline">
             Заказы →
           </Link>
+          <Link href="/admin/stock" className="text-sm font-medium text-brand hover:underline">
+            Остатки →
+          </Link>
           <SellerFormModal />
         </div>
       </div>

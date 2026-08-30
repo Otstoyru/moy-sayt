@@ -24,11 +24,16 @@ export default async function AdminOrdersPage() {
     <div className="mx-auto w-full max-w-5xl px-6 py-12">
       <div className="flex items-center justify-between">
         <h1 className="font-display text-3xl font-semibold">Заказы</h1>
-        {staff.role === "administrator" && (
-          <Link href="/admin/sellers" className="text-sm font-medium text-brand hover:underline">
-            Юрлица →
+        <div className="flex items-center gap-4">
+          <Link href="/admin/stock" className="text-sm font-medium text-brand hover:underline">
+            Остатки →
           </Link>
-        )}
+          {staff.role === "administrator" && (
+            <Link href="/admin/sellers" className="text-sm font-medium text-brand hover:underline">
+              Юрлица →
+            </Link>
+          )}
+        </div>
       </div>
 
       <div className="mt-8 divide-y divide-border rounded-xl border border-border bg-surface">

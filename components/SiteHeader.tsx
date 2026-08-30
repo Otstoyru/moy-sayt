@@ -39,8 +39,8 @@ export default function SiteHeader({ groups, user }: { groups: Group[]; user: He
         </nav>
 
         <div className="flex items-center gap-3">
-          {user?.role === "administrator" && (
-            <Link href="/admin/sellers" className="hidden text-sm font-medium hover:text-brand lg:block">
+          {(user?.role === "administrator" || user?.role === "manager") && (
+            <Link href="/admin/orders" className="hidden text-sm font-medium hover:text-brand lg:block">
               Админ
             </Link>
           )}
