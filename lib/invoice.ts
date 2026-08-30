@@ -82,10 +82,6 @@ export function renderInvoicePdf(
   doc.x = doc.page.margins.left;
   doc.y = afterTableY + 15;
   doc.font("Bold").fontSize(11);
-  doc.text(`Скидка за объём заказа: ${Math.round(order.discountPercent * 100)}%`, doc.x, doc.y, {
-    width: fullWidth,
-    align: "right",
-  });
   doc.text(`Итого к оплате: ${money(subtotal)}`, doc.page.margins.left, doc.y, {
     width: fullWidth,
     align: "right",
