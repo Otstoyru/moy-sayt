@@ -3,6 +3,7 @@ import Link from "next/link";
 import { requireRole, getUserById } from "@/lib/auth";
 import { getAllOrders } from "@/lib/db";
 import { getSellers } from "@/lib/sellers";
+import { getAccounts } from "@/lib/finance";
 import MarkSoldButton from "./MarkSoldButton";
 import ProcessedToggle from "./ProcessedToggle";
 
@@ -17,8 +18,15 @@ export default async function AdminOrdersPage() {
   const staff = await requireRole(["manager", "administrator"]);
   if (!staff) redirect("/login?next=/admin/orders");
 
-  const [orders, sellers] = await Promise.all([getAllOrders(), getSellers()]);
+  const [orders, sellers, accounts] = await Promise.all([getAllOrders(), getSellers(), getAccounts()]);
   const sellerById = new Map(sellers.map((s) => [s.id, s]));
+  const accountsBySeller = new Map<number, { id: number; name: string }[]>();
+  for (const a of accounts) {
+    if (!a.isActive) continue;
+    const list = accountsBySeller.get(a.sellerId) ?? [];
+    list.push({ id: a.id, name: a.name });
+    accountsBySeller.set(a.sellerId, list);
+  }
   const buyers = await Promise.all(orders.map((o) => getUserById(o.userId)));
 
   return (
@@ -33,9 +41,14 @@ export default async function AdminOrdersPage() {
             Возвраты →
           </Link>
           {staff.role === "administrator" && (
-            <Link href="/admin/sellers" className="text-sm font-medium text-brand hover:underline">
-              Юрлица →
-            </Link>
+            <>
+              <Link href="/admin/finance" className="text-sm font-medium text-brand hover:underline">
+                Финансы →
+              </Link>
+              <Link href="/admin/sellers" className="text-sm font-medium text-brand hover:underline">
+                Юрлица →
+              </Link>
+            </>
           )}
         </div>
       </div>
@@ -47,6 +60,14 @@ export default async function AdminOrdersPage() {
           const sellerIds = [
             ...new Set(order.items.map((item) => item.sellerId).filter((v): v is number => v !== null)),
           ];
+          const sellerGroups = sellerIds.map((sellerId) => ({
+            sellerId,
+            sellerName: sellerById.get(sellerId)?.shortName ?? `юрлицо #${sellerId}`,
+            subtotal: order.items
+              .filter((item) => item.sellerId === sellerId)
+              .reduce((sum, item) => sum + item.lineTotal, 0),
+            accounts: accountsBySeller.get(sellerId) ?? [],
+          }));
 
           return (
             <div key={order.id} className="p-4">
@@ -100,7 +121,7 @@ export default async function AdminOrdersPage() {
                   </a>
                 ))}
 
-                {order.status !== "sold" && <MarkSoldButton orderId={order.id} />}
+                {order.status !== "sold" && <MarkSoldButton orderId={order.id} sellerGroups={sellerGroups} />}
 
                 {order.status === "sold" &&
                   sellerIds.map((sellerId) => (

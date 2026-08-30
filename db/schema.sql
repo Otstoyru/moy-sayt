@@ -158,3 +158,53 @@ CREATE TABLE IF NOT EXISTS upd_documents (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   PRIMARY KEY (order_id, seller_id)
 );
+
+-- Фаза 5: финансовый учёт. Баланс счёта/юрлица/сквозной не хранится
+-- отдельным полем — всегда считается суммой financial_transactions, чтобы
+-- не могло разойтись с историей движений.
+
+-- Именной счёт или касса конкретного юрлица ("Счёт в Тинькофф №...",
+-- "Наличная касса") — у каждого юрлица может быть несколько.
+CREATE TABLE IF NOT EXISTS financial_accounts (
+  id SERIAL PRIMARY KEY,
+  seller_id INTEGER NOT NULL REFERENCES sellers(id),
+  name TEXT NOT NULL,
+  kind TEXT NOT NULL DEFAULT 'bank',  -- 'bank' | 'cash'
+  is_active BOOLEAN NOT NULL DEFAULT true,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Займ как отдельная сущность (сумма/ставка/срок), без полного графика
+-- платежей — фактические движения денег по нему (выдача, погашение,
+-- проценты) фиксируются обычными проводками в financial_transactions
+-- со ссылкой на loan_id. Остаток долга = principal минус сумма проводок
+-- категории 'loan_repayment' по этому займу (проценты на остаток не влияют,
+-- это отдельная статья расхода/дохода).
+CREATE TABLE IF NOT EXISTS loans (
+  id SERIAL PRIMARY KEY,
+  seller_id INTEGER NOT NULL REFERENCES sellers(id),
+  direction TEXT NOT NULL,           -- 'borrowed' (мы взяли) | 'lent' (мы дали)
+  counterparty TEXT NOT NULL,
+  principal NUMERIC NOT NULL,
+  interest_rate NUMERIC,             -- % годовых, NULL — беспроцентный
+  started_at DATE NOT NULL,
+  due_at DATE,
+  is_closed BOOLEAN NOT NULL DEFAULT false,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Проводка дохода/расхода по счёту. amount со знаком: + приход, - расход.
+-- order_id проставляется автоматически при отметке заказа "Продано";
+-- loan_id — когда проводка относится к выдаче/погашению/процентам займа.
+CREATE TABLE IF NOT EXISTS financial_transactions (
+  id SERIAL PRIMARY KEY,
+  account_id INTEGER NOT NULL REFERENCES financial_accounts(id),
+  amount NUMERIC NOT NULL,
+  category TEXT NOT NULL,
+  description TEXT,
+  order_id INTEGER REFERENCES orders(id),
+  loan_id INTEGER REFERENCES loans(id),
+  created_by INTEGER REFERENCES users(id),
+  occurred_at DATE NOT NULL DEFAULT CURRENT_DATE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
