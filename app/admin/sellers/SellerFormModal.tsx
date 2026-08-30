@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
-import { SELLER_LEGAL_FORMS } from "@/lib/sellers";
+import { SELLER_LEGAL_FORMS } from "@/lib/sellerForms";
 import type { Seller } from "@/lib/sellers";
 
 export default function SellerFormModal({ seller }: { seller?: Seller }) {

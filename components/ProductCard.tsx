@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { Product } from "@/lib/products";
+import type { Product } from "@/lib/products";
 import { useOrderList } from "@/components/OrderListProvider";
 
 export default function ProductCard({ product }: { product: Product }) {

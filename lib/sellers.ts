@@ -1,14 +1,6 @@
 import { sql } from "@/lib/db";
 
-export const SELLER_LEGAL_FORMS = [
-  { value: "ooo", label: "ООО" },
-  { value: "ip", label: "ИП" },
-  { value: "self_employed", label: "Самозанятый" },
-] as const;
-
-export function sellerLegalFormLabel(value: string): string {
-  return SELLER_LEGAL_FORMS.find((f) => f.value === value)?.label ?? value;
-}
+export { SELLER_LEGAL_FORMS, sellerLegalFormLabel } from "@/lib/sellerForms";
 
 export type Seller = {
   id: number;
