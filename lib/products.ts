@@ -68,6 +68,35 @@ export async function getProductByArticle(article: string): Promise<Product | un
   return rows[0] ? mapRow(rows[0]) : undefined;
 }
 
+export type NewProduct = {
+  article: string;
+  name: string;
+  productType: string | null;
+  categorySlug: string;
+  packageSize: number;
+  minPrice: number;
+  sellerId: number | null;
+};
+
+export type CreateProductResult = { ok: true; product: Product } | { ok: false; error: string };
+
+/** Новый товар — например, комплектующее (ручки), которое тоже продаётся отдельно. Остаток = 0, приход добавит его отдельно. */
+export async function createProduct(input: NewProduct): Promise<CreateProductResult> {
+  const existing = await sql`SELECT 1 FROM products WHERE article = ${input.article}`;
+  if (existing.length) return { ok: false, error: `Артикул «${input.article}» уже существует` };
+
+  await sql`
+    INSERT INTO products (article, stock, name, product_type, images, package_size, min_price, category_slug, seller_id)
+    VALUES (
+      ${input.article}, 0, ${input.name}, ${input.productType}, ${JSON.stringify(["/placeholder-product.svg"])},
+      ${input.packageSize}, ${input.minPrice}, ${input.categorySlug}, ${input.sellerId}
+    )
+  `;
+  const product = await getProductByArticle(input.article);
+  if (!product) return { ok: false, error: "Не удалось создать товар" };
+  return { ok: true, product };
+}
+
 export async function getProductCountByCategory(categorySlug: string): Promise<number> {
   const rows = await sql`SELECT count(*) FROM products WHERE category_slug = ${categorySlug}`;
   return Number(rows[0].count);

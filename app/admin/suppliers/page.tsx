@@ -5,9 +5,11 @@ import { getSellers } from "@/lib/sellers";
 import { getSuppliers, getReceiptsForSupplier } from "@/lib/suppliers";
 import { getAccounts } from "@/lib/finance";
 import { getAllProducts } from "@/lib/products";
+import { getCategories, getGroups } from "@/lib/categories";
 import SupplierFormModal from "./SupplierFormModal";
 import ReceiptForm from "./ReceiptForm";
 import SupplierPaymentForm from "./SupplierPaymentForm";
+import NewProductModal from "./NewProductModal";
 
 function money(n: number): string {
   return n.toLocaleString("ru-RU", { maximumFractionDigits: 0 }) + " ₽";
@@ -17,11 +19,13 @@ export default async function AdminSuppliersPage() {
   const staff = await requireRole(["manager", "administrator"]);
   if (!staff) redirect("/login?next=/admin/suppliers");
 
-  const [sellers, suppliers, accounts, products] = await Promise.all([
+  const [sellers, suppliers, accounts, products, categories, groups] = await Promise.all([
     getSellers(),
     getSuppliers(),
     getAccounts(),
     getAllProducts(),
+    getCategories(),
+    getGroups(),
   ]);
   const sellerById = new Map(sellers.map((s) => [s.id, s]));
   const receiptsBySupplier = await Promise.all(suppliers.map((s) => getReceiptsForSupplier(s.id)));
@@ -92,7 +96,10 @@ export default async function AdminSuppliersPage() {
         </div>
       )}
 
-      <h2 className="mt-10 font-display text-xl font-semibold">Оприходовать накладную</h2>
+      <div className="mt-10 flex items-center justify-between">
+        <h2 className="font-display text-xl font-semibold">Оприходовать накладную</h2>
+        <NewProductModal categories={categories} groups={groups} sellers={sellers.map((s) => ({ id: s.id, name: s.shortName }))} />
+      </div>
       <ReceiptForm
         suppliers={suppliers.map((s) => ({ id: s.id, name: s.name }))}
         articles={products.map((p) => p.article)}

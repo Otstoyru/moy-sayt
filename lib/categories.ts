@@ -1,4 +1,5 @@
 import { sql } from "@/lib/db";
+import { slugify } from "@/lib/slugify";
 
 export type Category = {
   slug: string;
@@ -41,4 +42,14 @@ export async function getGroups(): Promise<Group[]> {
 export async function getCategory(slug: string): Promise<Category | undefined> {
   const categories = await getCategories();
   return categories.find((c) => c.slug === slug);
+}
+
+export async function createCategory(name: string, groupSlug: string, groupName: string): Promise<Category> {
+  const slug = slugify(name);
+  await sql`
+    INSERT INTO categories (slug, name, group_slug, group_name)
+    VALUES (${slug}, ${name}, ${groupSlug}, ${groupName})
+    ON CONFLICT (slug) DO UPDATE SET name = EXCLUDED.name, group_slug = EXCLUDED.group_slug, group_name = EXCLUDED.group_name
+  `;
+  return { slug, name, groupSlug, groupName };
 }
