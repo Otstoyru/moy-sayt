@@ -15,10 +15,29 @@ function requiredBaseSum(step: number): number {
 }
 
 export function resolveDiscountStep(baseSum: number): number {
-  for (let step = MAX_STEPS; step >= 0; step--) {
-    if (baseSum >= requiredBaseSum(step)) return step;
+  let step = 0;
+  for (let d = MAX_STEPS; d >= 0; d--) {
+    if (baseSum >= requiredBaseSum(d)) {
+      step = d;
+      break;
+    }
   }
-  return 0;
+
+  // На границе шагов возможен парадокс: сумма к оплате на текущей скидке
+  // уже перевалила за следующий круглый порог, хотя сумма по базовым ценам
+  // до него чуть-чуть не дотягивает. В этом случае отдаём клиенту скидку
+  // следующего шага — эта сумма и оправдывает более глубокую скидку.
+  while (step < MAX_STEPS) {
+    const total = baseSum * STEP_RATIO ** (MAX_STEPS - step);
+    const threshold = (step + 1) * TIER;
+    if (total >= threshold) {
+      step += 1;
+    } else {
+      break;
+    }
+  }
+
+  return step;
 }
 
 export function discountForStep(step: number): number {
