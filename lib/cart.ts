@@ -1,5 +1,5 @@
 import { getProductByArticle, type Product } from "@/lib/products";
-import { effectiveMultiplier, unitPrice, amountToNextBracket, discountFromMultiplier } from "@/lib/pricing";
+import { markupForBaseSum, unitPrice, discountFromMarkup, amountToZeroMarkup } from "@/lib/pricing";
 import { getSessionReservations } from "@/lib/db";
 
 export type CartLine = {
@@ -30,14 +30,14 @@ export async function getCart(sessionId: string): Promise<CartSummary> {
     })
     .filter((l): l is { product: Product; quantityUnits: number } => l !== null);
 
-  // Сумма по базовым (минимальным) ценам определяет, в какие диапазоны
-  // 10 000 ₽ попадает заказ — маржинально, поэтому итог всегда монотонен.
+  // Сумма по базовым (минимальным) ценам — двигатель плавной кривой наценки,
+  // не зависит от самой наценки (никакой самоссылки).
   const baseSum = lines.reduce((sum, l) => sum + l.quantityUnits * l.product.minPrice, 0);
-  const multiplier = effectiveMultiplier(baseSum);
-  const discountPercent = discountFromMultiplier(multiplier);
+  const markup = markupForBaseSum(baseSum);
+  const discountPercent = discountFromMarkup(markup);
 
   const items: CartLine[] = lines.map((l) => {
-    const price = unitPrice(l.product.minPrice, multiplier);
+    const price = unitPrice(l.product.minPrice, markup);
     return {
       article: l.product.article,
       name: l.product.name,
@@ -50,7 +50,7 @@ export async function getCart(sessionId: string): Promise<CartSummary> {
   });
 
   const total = items.reduce((sum, i) => sum + i.lineTotal, 0);
-  const amountToNextDiscount = amountToNextBracket(baseSum, multiplier);
+  const amountToNextDiscount = amountToZeroMarkup(baseSum, markup);
 
   return { items, discountPercent, total, amountToNextDiscount };
 }
