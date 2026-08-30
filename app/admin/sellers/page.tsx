@@ -48,6 +48,8 @@ export default async function AdminSellersPage() {
               <p className="text-xs text-muted">
                 ИНН {s.inn}
                 {s.kpp ? ` · КПП ${s.kpp}` : ""}
+                {" · "}
+                {s.vatRate ? `НДС ${s.vatRate}%` : "без НДС (УСН/НПД)"}
                 {!s.bankAccount && (
                   <span className="ml-2 text-amber-600">— не заполнены банковские реквизиты</span>
                 )}

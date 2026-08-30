@@ -106,6 +106,25 @@ export default function SellerFormModal({ seller }: { seller?: Seller }) {
               </div>
               <Field label="Корр. счёт" name="bankCorrAccount" defaultValue={seller?.bankCorrAccount ?? ""} />
 
+              <p className="mt-2 text-xs font-semibold uppercase tracking-wide text-muted">
+                Налогообложение
+              </p>
+              <div className="flex flex-col gap-1.5">
+                <label htmlFor="vatRate" className="text-sm font-medium">
+                  Ставка НДС, % <span className="font-normal text-muted">(пусто — не облагается, УСН/НПД)</span>
+                </label>
+                <input
+                  id="vatRate"
+                  name="vatRate"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  max="100"
+                  defaultValue={seller?.vatRate ?? ""}
+                  className="h-11 rounded-md border border-border bg-surface px-3 outline-none focus:border-brand"
+                />
+              </div>
+
               {error && <p className="text-sm text-red-600">{error}</p>}
 
               <button

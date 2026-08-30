@@ -76,24 +76,55 @@ export function renderInvoicePdf(
     money(item.lineTotal),
   ]);
   const afterTableY = drawTable(doc, tableX, tableY, columns, rows);
+  const fullWidth = doc.page.width - doc.page.margins.left - doc.page.margins.right;
 
+  doc.x = doc.page.margins.left;
   doc.y = afterTableY + 15;
   doc.font("Bold").fontSize(11);
-  doc.text(`Скидка за объём заказа: ${Math.round(order.discountPercent * 100)}%`, { align: "right" });
-  doc.text(`Итого к оплате: ${money(subtotal)}`, { align: "right" });
+  doc.text(`Скидка за объём заказа: ${Math.round(order.discountPercent * 100)}%`, doc.x, doc.y, {
+    width: fullWidth,
+    align: "right",
+  });
+  doc.text(`Итого к оплате: ${money(subtotal)}`, doc.page.margins.left, doc.y, {
+    width: fullWidth,
+    align: "right",
+  });
+  doc.x = doc.page.margins.left;
+  doc.font("Regular").fontSize(9);
+  if (seller.vatRate) {
+    // Цены указаны с учётом НДС — строка ниже лишь показывает, сколько из
+    // уже посчитанного итога приходится на налог, не меняя саму сумму к оплате.
+    const vatAmount = subtotal - subtotal / (1 + seller.vatRate / 100);
+    doc.text(`в т.ч. НДС ${seller.vatRate}%: ${money(vatAmount)}`, doc.page.margins.left, doc.y, {
+      width: fullWidth,
+      align: "right",
+    });
+  } else {
+    doc.text("НДС не облагается (УСН)", doc.page.margins.left, doc.y, {
+      width: fullWidth,
+      align: "right",
+    });
+  }
+  doc.x = doc.page.margins.left;
   doc.moveDown(1);
 
   doc.font("Regular").fontSize(10);
   if (order.paymentDueAt) {
-    doc.fillColor("#b91c1c").text(`Оплатить до: ${fmtDate(order.paymentDueAt, true)}`, { align: "left" });
+    doc.fillColor("#b91c1c").text(`Оплатить до: ${fmtDate(order.paymentDueAt, true)}`, doc.page.margins.left, doc.y, {
+      width: fullWidth,
+      align: "left",
+    });
     doc.fillColor("black");
   }
+  doc.x = doc.page.margins.left;
   doc.moveDown(0.5);
   doc.fontSize(8).fillColor("#666666").text(
     "Счёт сформирован автоматически и действителен до указанной даты. Оплата данного счёта " +
       "означает согласие с условиями поставки. Товар отгружается самовывозом со склада " +
       "производителя, если иное не согласовано отдельно.",
-    { align: "left" }
+    doc.page.margins.left,
+    doc.y,
+    { width: fullWidth, align: "left" }
   );
 
   return renderToBuffer(doc);

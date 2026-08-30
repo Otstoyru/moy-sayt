@@ -25,6 +25,8 @@ export type Seller = {
   bankName: string | null;
   bankBik: string | null;
   bankCorrAccount: string | null;
+  /** Ставка НДС в процентах (напр. 20); null/0 — не облагается (УСН/НПД). */
+  vatRate: number | null;
   isActive: boolean;
 };
 
@@ -44,6 +46,7 @@ function mapSeller(r: Record<string, unknown>): Seller {
     bankName: (r.bank_name as string) ?? null,
     bankBik: (r.bank_bik as string) ?? null,
     bankCorrAccount: (r.bank_corr_account as string) ?? null,
+    vatRate: r.vat_rate === null || r.vat_rate === undefined ? null : Number(r.vat_rate),
     isActive: Boolean(r.is_active),
   };
 }
@@ -72,17 +75,18 @@ export type SellerInput = {
   bankName: string | null;
   bankBik: string | null;
   bankCorrAccount: string | null;
+  vatRate: number | null;
 };
 
 export async function createSeller(input: SellerInput): Promise<Seller> {
   const rows = await sql`
     INSERT INTO sellers (
       legal_form, full_name, short_name, inn, kpp, ogrn, legal_address,
-      phone, email, bank_account, bank_name, bank_bik, bank_corr_account
+      phone, email, bank_account, bank_name, bank_bik, bank_corr_account, vat_rate
     ) VALUES (
       ${input.legalForm}, ${input.fullName}, ${input.shortName}, ${input.inn}, ${input.kpp}, ${input.ogrn},
       ${input.legalAddress}, ${input.phone}, ${input.email}, ${input.bankAccount}, ${input.bankName},
-      ${input.bankBik}, ${input.bankCorrAccount}
+      ${input.bankBik}, ${input.bankCorrAccount}, ${input.vatRate}
     )
     RETURNING *
   `;
@@ -95,7 +99,8 @@ export async function updateSeller(id: number, input: SellerInput): Promise<Sell
       legal_form = ${input.legalForm}, full_name = ${input.fullName}, short_name = ${input.shortName},
       inn = ${input.inn}, kpp = ${input.kpp}, ogrn = ${input.ogrn}, legal_address = ${input.legalAddress},
       phone = ${input.phone}, email = ${input.email}, bank_account = ${input.bankAccount},
-      bank_name = ${input.bankName}, bank_bik = ${input.bankBik}, bank_corr_account = ${input.bankCorrAccount}
+      bank_name = ${input.bankName}, bank_bik = ${input.bankBik}, bank_corr_account = ${input.bankCorrAccount},
+      vat_rate = ${input.vatRate}
     WHERE id = ${id}
     RETURNING *
   `;

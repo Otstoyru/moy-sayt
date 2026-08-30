@@ -37,6 +37,7 @@ export async function POST(request: NextRequest) {
     bankName: body.bankName || null,
     bankBik: body.bankBik || null,
     bankCorrAccount: body.bankCorrAccount || null,
+    vatRate: body.vatRate ? Number(body.vatRate) : null,
   });
 
   return NextResponse.json(seller);

@@ -27,6 +27,7 @@ export async function PATCH(
     bankName: body.bankName || null,
     bankBik: body.bankBik || null,
     bankCorrAccount: body.bankCorrAccount || null,
+    vatRate: body.vatRate ? Number(body.vatRate) : null,
   });
 
   if (!seller) return NextResponse.json({ error: "Не найдено" }, { status: 404 });

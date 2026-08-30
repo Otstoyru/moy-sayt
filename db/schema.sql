@@ -54,6 +54,7 @@ CREATE TABLE IF NOT EXISTS sellers (
   bank_name TEXT,
   bank_bik TEXT,
   bank_corr_account TEXT,
+  vat_rate NUMERIC,                -- ставка НДС в % (напр. 20); NULL/0 — не облагается (УСН/НПД)
   is_active BOOLEAN NOT NULL DEFAULT true,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
