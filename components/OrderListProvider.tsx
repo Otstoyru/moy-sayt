@@ -20,7 +20,10 @@ export type CartLine = {
   lineTotal: number;
 };
 
-type SetPackagesResult = { ok: true } | { ok: false; availablePackages: number };
+type SetPackagesResult =
+  | { ok: true }
+  | { ok: false; availablePackages: number; requiresLogin?: false }
+  | { ok: false; availablePackages: 0; requiresLogin: true };
 
 type OrderListContextValue = {
   items: CartLine[];
@@ -75,6 +78,9 @@ export function OrderListProvider({ children }: { children: ReactNode }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ article, packages }),
       });
+      if (res.status === 401) {
+        return { ok: false, availablePackages: 0, requiresLogin: true };
+      }
       if (res.status === 409) {
         const data = await res.json();
         return { ok: false, availablePackages: data.availablePackages ?? 0 };
@@ -111,6 +117,9 @@ export function OrderListProvider({ children }: { children: ReactNode }) {
       if (res.ok) {
         await refresh();
         return { ok: true as const };
+      }
+      if (res.status === 401) {
+        return { ok: false as const, error: "Требуется вход в аккаунт" };
       }
       const data = await res.json().catch(() => ({}));
       return { ok: false as const, error: data.error ?? "Не удалось отправить заявку" };

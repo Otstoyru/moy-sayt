@@ -1,10 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getOrCreateSessionId } from "@/lib/session";
+import { getCurrentUser } from "@/lib/auth";
 import { getProductByArticle } from "@/lib/products";
 import { trySetReservation, deleteReservation, getStock, getReservedByOthers } from "@/lib/db";
 import { getCart } from "@/lib/cart";
 
 export async function POST(request: NextRequest) {
+  const user = await getCurrentUser();
+  if (!user) {
+    return NextResponse.json({ error: "Требуется вход в аккаунт" }, { status: 401 });
+  }
+
   const body = await request.json().catch(() => null);
   const article = body?.article;
   const packages = Number(body?.packages);
@@ -13,25 +18,23 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Некорректные данные" }, { status: 400 });
   }
 
-  const product = getProductByArticle(article);
+  const product = await getProductByArticle(article);
   if (!product) {
     return NextResponse.json({ error: "Товар не найден" }, { status: 404 });
   }
 
-  const sessionId = await getOrCreateSessionId();
-
   if (packages === 0) {
-    await deleteReservation(article, sessionId);
-    const cart = await getCart(sessionId);
+    await deleteReservation(article, user.id);
+    const cart = await getCart(user.id);
     return NextResponse.json(cart);
   }
 
   const quantityUnits = packages * product.packageSize;
-  const ok = await trySetReservation(article, sessionId, quantityUnits);
+  const ok = await trySetReservation(article, user.id, quantityUnits);
 
   if (!ok) {
     const stock = (await getStock(article)) ?? 0;
-    const reservedByOthers = await getReservedByOthers(article, sessionId);
+    const reservedByOthers = await getReservedByOthers(article, user.id);
     const availablePackages = Math.max(
       0,
       Math.floor((stock - reservedByOthers) / product.packageSize)
@@ -42,6 +45,6 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const cart = await getCart(sessionId);
+  const cart = await getCart(user.id);
   return NextResponse.json(cart);
 }

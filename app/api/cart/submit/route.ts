@@ -1,9 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getOrCreateSessionId } from "@/lib/session";
+import { getCurrentUser } from "@/lib/auth";
 import { getCart } from "@/lib/cart";
-import { confirmSessionReservations, insertOrder } from "@/lib/db";
+import { confirmUserReservations, insertOrder } from "@/lib/db";
 
 export async function POST(request: NextRequest) {
+  const user = await getCurrentUser();
+  if (!user) {
+    return NextResponse.json({ error: "Требуется вход в аккаунт" }, { status: 401 });
+  }
+
   const body = await request.json().catch(() => null);
   const { name, phone, email, comment, buyerType } = body ?? {};
 
@@ -11,17 +16,16 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Заполните обязательные поля" }, { status: 400 });
   }
 
-  const sessionId = await getOrCreateSessionId();
-  const cart = await getCart(sessionId);
+  const cart = await getCart(user.id);
 
   if (cart.items.length === 0) {
     return NextResponse.json({ error: "Список заказа пуст" }, { status: 400 });
   }
 
-  await confirmSessionReservations(sessionId);
+  await confirmUserReservations(user.id);
 
   await insertOrder({
-    sessionId,
+    userId: user.id,
     name,
     phone,
     email: email || null,

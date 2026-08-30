@@ -3,14 +3,12 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import ProductCard from "@/components/ProductCard";
 import Pagination from "@/components/Pagination";
-import { categories, groups, getCategory } from "@/lib/categories";
+import { getCategories, getGroups, getCategory } from "@/lib/categories";
 import { getProductsByCategory } from "@/lib/products";
 
-const PAGE_SIZE = 24;
+export const revalidate = 60;
 
-export function generateStaticParams() {
-  return categories.map((c) => ({ category: c.slug }));
-}
+const PAGE_SIZE = 24;
 
 export async function generateMetadata({
   params,
@@ -18,7 +16,7 @@ export async function generateMetadata({
   params: Promise<{ category: string }>;
 }): Promise<Metadata> {
   const { category } = await params;
-  const cat = getCategory(category);
+  const cat = await getCategory(category);
   return { title: cat ? `${cat.name} — ПО «Рускисть»` : "Каталог" };
 }
 
@@ -31,10 +29,14 @@ export default async function CategoryPage({
 }) {
   const { category } = await params;
   const { page: pageParam } = await searchParams;
-  const cat = getCategory(category);
+  const [cat, categories, groups] = await Promise.all([
+    getCategory(category),
+    getCategories(),
+    getGroups(),
+  ]);
   if (!cat) notFound();
 
-  const products = getProductsByCategory(category);
+  const products = await getProductsByCategory(category);
   const page = Math.max(1, parseInt(pageParam ?? "1", 10) || 1);
   const totalPages = Math.ceil(products.length / PAGE_SIZE);
   const pageItems = products.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);

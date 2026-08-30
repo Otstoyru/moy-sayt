@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter, usePathname } from "next/navigation";
 import { useOrderList } from "@/components/OrderListProvider";
 
 export default function AddToOrderButton({
@@ -11,6 +12,8 @@ export default function AddToOrderButton({
   packageSize: number;
 }) {
   const { items, setPackages } = useOrderList();
+  const router = useRouter();
+  const pathname = usePathname();
   const [available, setAvailable] = useState<number | null>(null);
   const [pending, setPending] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
@@ -37,6 +40,10 @@ export default function AddToOrderButton({
     setPending(true);
     const result = await setPackages(article, next);
     if (!result.ok) {
+      if (result.requiresLogin) {
+        router.push(`/login?next=${encodeURIComponent(pathname)}`);
+        return;
+      }
       setAvailable(result.availablePackages);
       setNotice(`Доступно только ${result.availablePackages} уп.`);
     }

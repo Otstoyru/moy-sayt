@@ -1,4 +1,5 @@
-// Сгенерировано scripts/import-excel.mjs — не редактировать руками.
+import { sql } from "@/lib/db";
+
 export type Category = {
   slug: string;
   name: string;
@@ -6,36 +7,38 @@ export type Category = {
   groupName: string;
 };
 
-export const groups = [
-  { slug: "schetki", name: "Щётки" },
-  { slug: "izdeliya-iz-dereva", name: "Изделия из дерева" },
-];
+export type Group = {
+  slug: string;
+  name: string;
+};
 
-export const categories: Category[] = [
-  { slug: "dlya-gramplastinok", name: "Для грампластинок", groupSlug: "schetki", groupName: "Щётки" },
-  { slug: "dlya-zhivotnyh", name: "Для животных", groupSlug: "schetki", groupName: "Щётки" },
-  { slug: "dlya-kaminov", name: "Для каминов", groupSlug: "schetki", groupName: "Щётки" },
-  { slug: "dlya-konditerskih-predpriyatiy", name: "Для кондитерских предприятий", groupSlug: "schetki", groupName: "Щётки" },
-  { slug: "dlya-suhogo-massazha", name: "Для сухого массажа", groupSlug: "schetki", groupName: "Щётки" },
-  { slug: "maklovitsy", name: "Макловицы", groupSlug: "schetki", groupName: "Щётки" },
-  { slug: "smetki", name: "Смётки", groupSlug: "schetki", groupName: "Щётки" },
-  { slug: "spetszakaz", name: "Спецзаказ", groupSlug: "schetki", groupName: "Щётки" },
-  { slug: "schetki-dlya-volos", name: "Щётки для волос", groupSlug: "schetki", groupName: "Щётки" },
-  { slug: "schetki-dlya-pola", name: "Щётки для пола", groupSlug: "schetki", groupName: "Щётки" },
-  { slug: "schetki-dlya-ruk", name: "Щётки для рук", groupSlug: "schetki", groupName: "Щётки" },
-  { slug: "schetki-obuvnye", name: "Щётки обувные", groupSlug: "schetki", groupName: "Щётки" },
-  { slug: "schetki-odezhnye", name: "Щётки одёжные", groupSlug: "schetki", groupName: "Щётки" },
-  { slug: "schetki-s-ruchkoy", name: "Щётки с ручкой", groupSlug: "schetki", groupName: "Щётки" },
-  { slug: "schetki-hozyaystvennye", name: "Щётки хозяйственные", groupSlug: "schetki", groupName: "Щётки" },
-  { slug: "schity-podnozhnye", name: "Щиты подножные", groupSlug: "schetki", groupName: "Щётки" },
-  { slug: "dlya-vannoy-komnaty", name: "Для ванной комнаты", groupSlug: "izdeliya-iz-dereva", groupName: "Изделия из дерева" },
-  { slug: "dlya-interera", name: "Для интерьера", groupSlug: "izdeliya-iz-dereva", groupName: "Изделия из дерева" },
-  { slug: "dlya-kuhni", name: "Для кухни", groupSlug: "izdeliya-iz-dereva", groupName: "Изделия из дерева" },
-  { slug: "dlya-sada-i-ogoroda", name: "Для сада и огорода", groupSlug: "izdeliya-iz-dereva", groupName: "Изделия из дерева" },
-  { slug: "dlya-tehniki", name: "Для техники", groupSlug: "izdeliya-iz-dereva", groupName: "Изделия из дерева" },
-  { slug: "dlya-uhoda-za-telom", name: "Для ухода за телом", groupSlug: "izdeliya-iz-dereva", groupName: "Изделия из дерева" },
-];
+const GROUP_ORDER = ["schetki", "izdeliya-iz-dereva"];
 
-export function getCategory(slug: string) {
+export async function getCategories(): Promise<Category[]> {
+  const rows = await sql`
+    SELECT slug, name, group_slug, group_name FROM categories
+    ORDER BY name
+  `;
+  return rows
+    .map((r) => ({
+      slug: r.slug as string,
+      name: r.name as string,
+      groupSlug: r.group_slug as string,
+      groupName: r.group_name as string,
+    }))
+    .sort((a, b) => GROUP_ORDER.indexOf(a.groupSlug) - GROUP_ORDER.indexOf(b.groupSlug));
+}
+
+export async function getGroups(): Promise<Group[]> {
+  const categories = await getCategories();
+  const seen = new Map<string, Group>();
+  for (const c of categories) {
+    if (!seen.has(c.groupSlug)) seen.set(c.groupSlug, { slug: c.groupSlug, name: c.groupName });
+  }
+  return [...seen.values()];
+}
+
+export async function getCategory(slug: string): Promise<Category | undefined> {
+  const categories = await getCategories();
   return categories.find((c) => c.slug === slug);
 }

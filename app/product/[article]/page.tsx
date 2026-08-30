@@ -7,14 +7,11 @@ import ProductCard from "@/components/ProductCard";
 import { getCategory } from "@/lib/categories";
 import {
   generateDescription,
-  getAllProducts,
   getProductByArticle,
   getProductsByCategory,
 } from "@/lib/products";
 
-export function generateStaticParams() {
-  return getAllProducts().map((p) => ({ article: p.article }));
-}
+export const revalidate = 60;
 
 export async function generateMetadata({
   params,
@@ -22,7 +19,7 @@ export async function generateMetadata({
   params: Promise<{ article: string }>;
 }): Promise<Metadata> {
   const { article } = await params;
-  const product = getProductByArticle(decodeURIComponent(article));
+  const product = await getProductByArticle(decodeURIComponent(article));
   return { title: product ? `${product.name} — ПО «Рускисть»` : "Товар" };
 }
 
@@ -32,13 +29,14 @@ export default async function ProductPage({
   params: Promise<{ article: string }>;
 }) {
   const { article } = await params;
-  const product = getProductByArticle(decodeURIComponent(article));
+  const product = await getProductByArticle(decodeURIComponent(article));
   if (!product) notFound();
 
-  const category = getCategory(product.categorySlug);
-  const related = getProductsByCategory(product.categorySlug)
-    .filter((p) => p.article !== product.article)
-    .slice(0, 4);
+  const [category, categoryProducts] = await Promise.all([
+    getCategory(product.categorySlug),
+    getProductsByCategory(product.categorySlug),
+  ]);
+  const related = categoryProducts.filter((p) => p.article !== product.article).slice(0, 4);
 
   return (
     <div className="mx-auto w-full max-w-6xl px-6 py-12">

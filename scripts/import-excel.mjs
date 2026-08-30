@@ -1,15 +1,14 @@
 import XLSX from "xlsx";
 import { neon } from "@neondatabase/serverless";
-import { readFileSync, writeFileSync, existsSync } from "node:fs";
-import { fileURLToPath } from "node:url";
-import path from "node:path";
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const root = path.join(__dirname, "..");
 
 const inputPath = process.argv[2];
 if (!inputPath) {
   console.error("Usage: node scripts/import-excel.mjs <path-to-xlsx>");
+  process.exit(1);
+}
+
+if (!process.env.DATABASE_URL) {
+  console.error("DATABASE_URL не задан");
   process.exit(1);
 }
 
@@ -36,19 +35,17 @@ function slugify(text) {
     .replace(/^-+|-+$/g, "");
 }
 
+const sql = neon(process.env.DATABASE_URL);
+
 const wb = XLSX.readFile(inputPath);
 const ws = wb.Sheets["Лист1"];
 const rows = XLSX.utils.sheet_to_json(ws, { header: 1, raw: true }).slice(1);
 
-// Изображения переносим из текущего каталога там, где артикул совпадает.
-const oldProductsPath = path.join(root, "data", "products.json");
-const oldImagesByArticle = new Map();
-if (existsSync(oldProductsPath)) {
-  const old = JSON.parse(readFileSync(oldProductsPath, "utf8"));
-  for (const p of old) {
-    if (Array.isArray(p.images) && p.images.length) {
-      oldImagesByArticle.set(p.article.trim(), p.images);
-    }
+// Фото переносим из уже сохранённых в БД товаров там, где артикул совпадает.
+const existingImages = new Map();
+for (const row of await sql`SELECT article, images FROM products WHERE images IS NOT NULL`) {
+  if (Array.isArray(row.images) && row.images.length) {
+    existingImages.set(row.article.trim(), row.images);
   }
 }
 
@@ -73,7 +70,7 @@ for (const row of rows) {
   const stock = Number(stockRaw);
 
   const name = [productType, title].filter(Boolean).join(", ");
-  const images = oldImagesByArticle.get(article) ?? ["/placeholder-product.svg"];
+  const images = existingImages.get(article) ?? ["/placeholder-product.svg"];
 
   products.push({
     article,
@@ -83,73 +80,31 @@ for (const row of rows) {
     packageSize,
     minPrice,
     stock,
-    groupSlug,
-    groupName,
     categorySlug,
-    categoryName,
   });
 }
 
-writeFileSync(
-  path.join(root, "data", "products.json"),
-  JSON.stringify(products, null, 2) + "\n",
-  "utf8"
-);
-console.log(`data/products.json: ${products.length} products`);
-
-const GROUP_ORDER = ["schetki", "izdeliya-iz-dereva"];
-const sortedCategories = [...categories.values()].sort((a, b) => {
-  const gi = GROUP_ORDER.indexOf(a.groupSlug) - GROUP_ORDER.indexOf(b.groupSlug);
-  if (gi !== 0) return gi;
-  return a.name.localeCompare(b.name, "ru");
-});
-
-const categoriesSource = `// Сгенерировано scripts/import-excel.mjs — не редактировать руками.
-export type Category = {
-  slug: string;
-  name: string;
-  groupSlug: string;
-  groupName: string;
-};
-
-export const groups = [
-${[...new Set(sortedCategories.map((c) => c.groupSlug))]
-  .map((slug) => {
-    const name = sortedCategories.find((c) => c.groupSlug === slug).groupName;
-    return `  { slug: ${JSON.stringify(slug)}, name: ${JSON.stringify(name)} },`;
-  })
-  .join("\n")}
-];
-
-export const categories: Category[] = [
-${sortedCategories
-  .map(
-    (c) =>
-      `  { slug: ${JSON.stringify(c.slug)}, name: ${JSON.stringify(c.name)}, groupSlug: ${JSON.stringify(
-        c.groupSlug
-      )}, groupName: ${JSON.stringify(c.groupName)} },`
-  )
-  .join("\n")}
-];
-
-export function getCategory(slug: string) {
-  return categories.find((c) => c.slug === slug);
+for (const c of categories.values()) {
+  await sql`
+    INSERT INTO categories (slug, name, group_slug, group_name)
+    VALUES (${c.slug}, ${c.name}, ${c.groupSlug}, ${c.groupName})
+    ON CONFLICT (slug) DO UPDATE SET name = EXCLUDED.name, group_slug = EXCLUDED.group_slug, group_name = EXCLUDED.group_name
+  `;
 }
-`;
+console.log(`Postgres: upserted ${categories.size} categories`);
 
-writeFileSync(path.join(root, "lib", "categories.ts"), categoriesSource, "utf8");
-console.log(`lib/categories.ts: ${sortedCategories.length} categories in ${new Set(sortedCategories.map(c=>c.groupSlug)).size} groups`);
-
-// Обновляем остатки в БД (upsert, не трогает активные резервы).
-if (process.env.DATABASE_URL) {
-  const sql = neon(process.env.DATABASE_URL);
-  for (const p of products) {
-    await sql`
-      INSERT INTO products (article, stock) VALUES (${p.article}, ${p.stock})
-      ON CONFLICT (article) DO UPDATE SET stock = EXCLUDED.stock
-    `;
-  }
-  console.log(`Postgres: upserted stock for ${products.length} articles`);
-} else {
-  console.log("DATABASE_URL not set — skipped Postgres upsert");
+for (const p of products) {
+  await sql`
+    INSERT INTO products (article, stock, name, product_type, images, package_size, min_price, category_slug)
+    VALUES (${p.article}, ${p.stock}, ${p.name}, ${p.productType}, ${JSON.stringify(p.images)}, ${p.packageSize}, ${p.minPrice}, ${p.categorySlug})
+    ON CONFLICT (article) DO UPDATE SET
+      stock = EXCLUDED.stock,
+      name = EXCLUDED.name,
+      product_type = EXCLUDED.product_type,
+      images = EXCLUDED.images,
+      package_size = EXCLUDED.package_size,
+      min_price = EXCLUDED.min_price,
+      category_slug = EXCLUDED.category_slug
+  `;
 }
+console.log(`Postgres: upserted ${products.length} products`);

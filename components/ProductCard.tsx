@@ -3,11 +3,14 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
+import { useRouter, usePathname } from "next/navigation";
 import { Product } from "@/lib/products";
 import { useOrderList } from "@/components/OrderListProvider";
 
 export default function ProductCard({ product }: { product: Product }) {
   const { items, setPackages } = useOrderList();
+  const router = useRouter();
+  const pathname = usePathname();
   const [pending, setPending] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
 
@@ -19,6 +22,10 @@ export default function ProductCard({ product }: { product: Product }) {
     setNotice(null);
     const result = await setPackages(product.article, current + 1);
     if (!result.ok) {
+      if (result.requiresLogin) {
+        router.push(`/login?next=${encodeURIComponent(pathname)}`);
+        return;
+      }
       setNotice(
         result.availablePackages > 0
           ? `Доступно только ${result.availablePackages} уп.`

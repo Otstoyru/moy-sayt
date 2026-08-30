@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import ProductCard from "@/components/ProductCard";
 import Pagination from "@/components/Pagination";
-import { categories, groups } from "@/lib/categories";
+import { getCategories, getGroups } from "@/lib/categories";
 import { getAllProducts } from "@/lib/products";
 
 export const metadata: Metadata = {
@@ -17,7 +17,11 @@ export default async function CatalogPage({
   searchParams: Promise<{ page?: string }>;
 }) {
   const { page: pageParam } = await searchParams;
-  const products = getAllProducts();
+  const [products, categories, groups] = await Promise.all([
+    getAllProducts(),
+    getCategories(),
+    getGroups(),
+  ]);
   const page = Math.max(1, parseInt(pageParam ?? "1", 10) || 1);
   const totalPages = Math.ceil(products.length / PAGE_SIZE);
   const pageItems = products.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);

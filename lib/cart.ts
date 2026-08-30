@@ -1,6 +1,6 @@
 import { getProductByArticle, type Product } from "@/lib/products";
 import { markupForBaseSum, unitPrice, discountFromMarkup, amountToZeroMarkup } from "@/lib/pricing";
-import { getSessionReservations } from "@/lib/db";
+import { getUserReservations } from "@/lib/db";
 
 export type CartLine = {
   article: string;
@@ -19,16 +19,17 @@ export type CartSummary = {
   amountToNextDiscount: number;
 };
 
-export async function getCart(sessionId: string): Promise<CartSummary> {
-  const reservations = await getSessionReservations(sessionId);
+export async function getCart(userId: number): Promise<CartSummary> {
+  const reservations = await getUserReservations(userId);
 
-  const lines = reservations
-    .map((r) => {
-      const product = getProductByArticle(r.article);
+  const resolved = await Promise.all(
+    reservations.map(async (r) => {
+      const product = await getProductByArticle(r.article);
       if (!product) return null;
       return { product, quantityUnits: r.quantity };
     })
-    .filter((l): l is { product: Product; quantityUnits: number } => l !== null);
+  );
+  const lines = resolved.filter((l): l is { product: Product; quantityUnits: number } => l !== null);
 
   // Сумма по базовым (минимальным) ценам — двигатель плавной кривой наценки,
   // не зависит от самой наценки (никакой самоссылки).

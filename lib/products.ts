@@ -1,5 +1,5 @@
-import rawProducts from "@/data/products.json";
-import { categories } from "@/lib/categories";
+import { sql } from "@/lib/db";
+import { getCategories } from "@/lib/categories";
 
 export type Product = {
   article: string;
@@ -15,30 +15,67 @@ export type Product = {
   categoryName: string;
 };
 
-export const products = rawProducts as Product[];
-
-export function getAllProducts(): Product[] {
-  return products;
+function mapRow(r: Record<string, unknown>): Product {
+  return {
+    article: r.article as string,
+    name: r.name as string,
+    productType: r.product_type as string,
+    images: (r.images as string[]) ?? [],
+    packageSize: Number(r.package_size),
+    minPrice: Number(r.min_price),
+    stock: Number(r.stock),
+    groupSlug: r.group_slug as string,
+    groupName: r.group_name as string,
+    categorySlug: r.category_slug as string,
+    categoryName: r.category_name as string,
+  };
 }
 
-export function getProductsByCategory(categorySlug: string): Product[] {
-  return products.filter((p) => p.categorySlug === categorySlug);
+export async function getAllProducts(): Promise<Product[]> {
+  const rows = await sql`
+    SELECT p.article, p.name, p.product_type, p.images, p.package_size, p.min_price, p.stock,
+           c.slug AS category_slug, c.name AS category_name, c.group_slug, c.group_name
+    FROM products p
+    JOIN categories c ON c.slug = p.category_slug
+    ORDER BY p.article
+  `;
+  return rows.map(mapRow);
 }
 
-export function getProductByArticle(article: string): Product | undefined {
-  return products.find((p) => p.article === article);
+export async function getProductsByCategory(categorySlug: string): Promise<Product[]> {
+  const rows = await sql`
+    SELECT p.article, p.name, p.product_type, p.images, p.package_size, p.min_price, p.stock,
+           c.slug AS category_slug, c.name AS category_name, c.group_slug, c.group_name
+    FROM products p
+    JOIN categories c ON c.slug = p.category_slug
+    WHERE c.slug = ${categorySlug}
+    ORDER BY p.article
+  `;
+  return rows.map(mapRow);
 }
 
-export function getProductCountByCategory(categorySlug: string): number {
-  return products.filter((p) => p.categorySlug === categorySlug).length;
+export async function getProductByArticle(article: string): Promise<Product | undefined> {
+  const rows = await sql`
+    SELECT p.article, p.name, p.product_type, p.images, p.package_size, p.min_price, p.stock,
+           c.slug AS category_slug, c.name AS category_name, c.group_slug, c.group_name
+    FROM products p
+    JOIN categories c ON c.slug = p.category_slug
+    WHERE p.article = ${article}
+  `;
+  return rows[0] ? mapRow(rows[0]) : undefined;
 }
 
-export function getCategoriesWithCounts() {
-  return categories.map((c) => ({
-    ...c,
-    count: getProductCountByCategory(c.slug),
-    cover: getProductsByCategory(c.slug)[0]?.images[0],
-  }));
+export async function getProductCountByCategory(categorySlug: string): Promise<number> {
+  const rows = await sql`SELECT count(*) FROM products WHERE category_slug = ${categorySlug}`;
+  return Number(rows[0].count);
+}
+
+export async function getCategoriesWithCounts() {
+  const [categories, all] = await Promise.all([getCategories(), getAllProducts()]);
+  return categories.map((c) => {
+    const inCategory = all.filter((p) => p.categorySlug === c.slug);
+    return { ...c, count: inCategory.length, cover: inCategory[0]?.images[0] };
+  });
 }
 
 const MATERIALS: { match: RegExp; label: string; blurb: string }[] = [
@@ -90,7 +127,6 @@ export function detectMaterial(name: string) {
 
 export function generateDescription(product: Product): string {
   const material = detectMaterial(product.name);
-  const category = categories.find((c) => c.slug === product.categorySlug);
 
   const sentences: string[] = [];
 
@@ -104,11 +140,9 @@ export function generateDescription(product: Product): string {
     );
   }
 
-  if (category) {
-    sentences.push(
-      `Изделие относится к линейке «${category.name.toLowerCase()}» и подходит как для розничной покупки, так и для оптовых заказов от магазинов и дистрибьюторов.`
-    );
-  }
+  sentences.push(
+    `Изделие относится к линейке «${product.categoryName.toLowerCase()}» и подходит как для розничной покупки, так и для оптовых заказов от магазинов и дистрибьюторов.`
+  );
 
   sentences.push(
     `Артикул ${product.article}. Упаковка — ${product.packageSize} шт. Мы производим щёточные изделия более 10 лет и контролируем качество на каждом этапе — от подбора сырья до финальной сборки.`

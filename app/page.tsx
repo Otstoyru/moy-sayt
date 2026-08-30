@@ -30,8 +30,10 @@ const MATERIALS = [
   },
 ];
 
-export default function Home() {
-  const categories = getCategoriesWithCounts();
+export const revalidate = 60;
+
+export default async function Home() {
+  const categories = await getCategoriesWithCounts();
 
   return (
     <div className="flex flex-col">

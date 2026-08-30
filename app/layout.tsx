@@ -4,6 +4,8 @@ import "./globals.css";
 import SiteHeader from "@/components/SiteHeader";
 import SiteFooter from "@/components/SiteFooter";
 import { OrderListProvider } from "@/components/OrderListProvider";
+import { getGroups } from "@/lib/categories";
+import { getCurrentUser } from "@/lib/auth";
 
 const displayFont = PT_Serif({
   variable: "--font-fraunces",
@@ -22,7 +24,9 @@ export const metadata: Metadata = {
     "Производство и продажа щёток, кистей и щёточных изделий. Более 200 наименований, опт и розница, собственное производство.",
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default async function RootLayout({ children }: LayoutProps<"/">) {
+  const [groups, user] = await Promise.all([getGroups(), getCurrentUser()]);
+
   return (
     <html
       lang="ru"
@@ -30,7 +34,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     >
       <body className="min-h-full flex flex-col bg-background text-foreground">
         <OrderListProvider>
-          <SiteHeader />
+          <SiteHeader groups={groups} user={user ? { name: user.name } : null} />
           <main className="flex flex-1 flex-col">{children}</main>
           <SiteFooter />
         </OrderListProvider>

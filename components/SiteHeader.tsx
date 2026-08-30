@@ -2,10 +2,12 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { groups } from "@/lib/categories";
+import type { Group } from "@/lib/categories";
 import { useOrderList } from "@/components/OrderListProvider";
 
-export default function SiteHeader() {
+type HeaderUser = { name: string } | null;
+
+export default function SiteHeader({ groups, user }: { groups: Group[]; user: HeaderUser }) {
   const { totalCount } = useOrderList();
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -38,6 +40,12 @@ export default function SiteHeader() {
 
         <div className="flex items-center gap-3">
           <Link
+            href={user ? "/account" : "/login"}
+            className="hidden text-sm font-medium hover:text-brand lg:block"
+          >
+            {user ? user.name : "Войти"}
+          </Link>
+          <Link
             href="/order"
             className="relative flex h-10 items-center gap-2 rounded-full border border-border px-4 text-sm font-medium hover:border-brand hover:text-brand"
           >
@@ -62,6 +70,9 @@ export default function SiteHeader() {
       {menuOpen && (
         <div className="border-t border-border px-6 py-4 lg:hidden">
           <nav className="flex flex-col gap-3 text-sm font-medium">
+            <Link href={user ? "/account" : "/login"} onClick={() => setMenuOpen(false)}>
+              {user ? user.name : "Войти"}
+            </Link>
             <Link href="/catalog" onClick={() => setMenuOpen(false)}>
               Каталог
             </Link>

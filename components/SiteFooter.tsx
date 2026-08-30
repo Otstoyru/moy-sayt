@@ -1,8 +1,9 @@
 import Link from "next/link";
-import { categories } from "@/lib/categories";
+import { getCategories } from "@/lib/categories";
 import { company } from "@/lib/company";
 
-export default function SiteFooter() {
+export default async function SiteFooter() {
+  const categories = await getCategories();
   return (
     <footer className="border-t border-border bg-surface">
       <div className="mx-auto grid max-w-6xl gap-10 px-6 py-12 sm:grid-cols-2 lg:grid-cols-4">
