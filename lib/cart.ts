@@ -1,5 +1,5 @@
 import { getProductByArticle, type Product } from "@/lib/products";
-import { discountForSubtotal, maxPrice, unitPrice } from "@/lib/pricing";
+import { resolveDiscountStep, discountForStep, unitPriceForStep, nextThresholdAmount } from "@/lib/pricing";
 import { getSessionReservations } from "@/lib/db";
 
 export type CartLine = {
@@ -15,8 +15,8 @@ export type CartLine = {
 export type CartSummary = {
   items: CartLine[];
   discountPercent: number;
-  grossSubtotal: number;
   total: number;
+  amountToNextDiscount: number;
 };
 
 export async function getCart(sessionId: string): Promise<CartSummary> {
@@ -30,14 +30,14 @@ export async function getCart(sessionId: string): Promise<CartSummary> {
     })
     .filter((l): l is { product: Product; quantityUnits: number } => l !== null);
 
-  const grossSubtotal = lines.reduce(
-    (sum, l) => sum + l.quantityUnits * maxPrice(l.product.minPrice),
-    0
-  );
-  const discountPercent = discountForSubtotal(grossSubtotal);
+  // Сумма по базовым (минимальным) ценам — не зависит от скидки, служит
+  // входом для разрешения самоссылки "скидка зависит от суммы к оплате".
+  const baseSum = lines.reduce((sum, l) => sum + l.quantityUnits * l.product.minPrice, 0);
+  const step = resolveDiscountStep(baseSum);
+  const discountPercent = discountForStep(step);
 
   const items: CartLine[] = lines.map((l) => {
-    const price = unitPrice(l.product.minPrice, discountPercent);
+    const price = unitPriceForStep(l.product.minPrice, step);
     return {
       article: l.product.article,
       name: l.product.name,
@@ -50,6 +50,8 @@ export async function getCart(sessionId: string): Promise<CartSummary> {
   });
 
   const total = items.reduce((sum, i) => sum + i.lineTotal, 0);
+  const threshold = nextThresholdAmount(step);
+  const amountToNextDiscount = threshold === null ? 0 : Math.max(0, threshold - total);
 
-  return { items, discountPercent, grossSubtotal, total };
+  return { items, discountPercent, total, amountToNextDiscount };
 }

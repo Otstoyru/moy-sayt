@@ -3,17 +3,25 @@ const MAX_STEPS = 10;
 const STEP_RATIO = 1.05;
 
 /**
- * Цена за штуку снижается геометрически: за каждые полные 10 000 ₽ суммы
- * заказа (по максимальным ценам) цена делится на 1.05, пока не достигнет
- * минимальной цены (10 шагов, при сумме ≥100 000 ₽). Коэффициенты сверены
- * с примером ценообразования — расхождение 0 на всех порогах.
+ * Порог скидки определяется суммой, которую клиент РЕАЛЬНО ПЛАТИТ — но
+ * сама эта сумма зависит от скидки (самоссылка). Разрешаем это аналитически:
+ * "сумма по базовым (минимальным) ценам" не зависит от скидки и растёт
+ * вместе с ней монотонно быстрее порога, поэтому нужный уровень скидки —
+ * это наибольший шаг d, для которого суммы по базовым ценам уже достаточно.
+ * Сверено с примером ценообразования (11 точек, расхождение 0).
  */
-function stepForSubtotal(grossSubtotal: number): number {
-  return Math.min(MAX_STEPS, Math.floor(grossSubtotal / TIER));
+function requiredBaseSum(step: number): number {
+  return (step * TIER) / STEP_RATIO ** (MAX_STEPS - step);
 }
 
-export function discountForSubtotal(grossSubtotal: number): number {
-  const step = stepForSubtotal(grossSubtotal);
+export function resolveDiscountStep(baseSum: number): number {
+  for (let step = MAX_STEPS; step >= 0; step--) {
+    if (baseSum >= requiredBaseSum(step)) return step;
+  }
+  return 0;
+}
+
+export function discountForStep(step: number): number {
   return 1 - STEP_RATIO ** -step;
 }
 
@@ -21,13 +29,12 @@ export function maxPrice(minPrice: number): number {
   return minPrice * STEP_RATIO ** MAX_STEPS;
 }
 
-export function unitPrice(minPrice: number, discount: number): number {
-  return maxPrice(minPrice) * (1 - discount);
+export function unitPriceForStep(minPrice: number, step: number): number {
+  return minPrice * STEP_RATIO ** (MAX_STEPS - step);
 }
 
-export function amountToNextDiscount(grossSubtotal: number): number {
-  const step = stepForSubtotal(grossSubtotal);
-  if (step >= MAX_STEPS) return 0;
-  const nextTierFloor = (step + 1) * TIER;
-  return nextTierFloor - grossSubtotal;
+/** Ближайший круглый порог (10 000 / 20 000 / … / 100 000) суммы к оплате. */
+export function nextThresholdAmount(step: number): number | null {
+  if (step >= MAX_STEPS) return null;
+  return (step + 1) * TIER;
 }

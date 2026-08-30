@@ -26,7 +26,7 @@ type OrderListContextValue = {
   items: CartLine[];
   loading: boolean;
   discountPercent: number;
-  grossSubtotal: number;
+  amountToNextDiscount: number;
   totalPrice: number;
   totalCount: number;
   setPackages: (article: string, packages: number) => Promise<SetPackagesResult>;
@@ -46,7 +46,7 @@ const OrderListContext = createContext<OrderListContextValue | null>(null);
 type CartResponse = {
   items: CartLine[];
   discountPercent: number;
-  grossSubtotal: number;
+  amountToNextDiscount: number;
   total: number;
 };
 
@@ -54,7 +54,7 @@ export function OrderListProvider({ children }: { children: ReactNode }) {
   const [cart, setCart] = useState<CartResponse>({
     items: [],
     discountPercent: 0,
-    grossSubtotal: 0,
+    amountToNextDiscount: 0,
     total: 0,
   });
   const [loading, setLoading] = useState(true);
@@ -128,7 +128,7 @@ export function OrderListProvider({ children }: { children: ReactNode }) {
       items: cart.items,
       loading,
       discountPercent: cart.discountPercent,
-      grossSubtotal: cart.grossSubtotal,
+      amountToNextDiscount: cart.amountToNextDiscount,
       totalPrice: cart.total,
       totalCount,
       setPackages,

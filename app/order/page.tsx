@@ -4,18 +4,22 @@ import Image from "next/image";
 import Link from "next/link";
 import { FormEvent, useState } from "react";
 import { useOrderList } from "@/components/OrderListProvider";
-import { amountToNextDiscount } from "@/lib/pricing";
 
 type Status = "idle" | "submitting" | "success" | "error";
 
 export default function OrderPage() {
-  const { items, removeItem, setPackages, discountPercent, grossSubtotal, totalPrice, submit } =
-    useOrderList();
+  const {
+    items,
+    removeItem,
+    setPackages,
+    discountPercent,
+    amountToNextDiscount,
+    totalPrice,
+    submit,
+  } = useOrderList();
   const [status, setStatus] = useState<Status>("idle");
   const [errorMessage, setErrorMessage] = useState("");
   const [buyerType, setBuyerType] = useState<"retail" | "wholesale">("retail");
-
-  const toNextDiscount = amountToNextDiscount(grossSubtotal);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -124,10 +128,10 @@ export default function OrderPage() {
                 Скидка за объём заказа: {Math.round(discountPercent * 100)}%
               </p>
             )}
-            {toNextDiscount > 0 && (
+            {amountToNextDiscount > 0 && (
               <p className="text-xs text-muted">
                 До следующей скидки не хватает{" "}
-                {toNextDiscount.toLocaleString("ru-RU", { maximumFractionDigits: 0 })} ₽
+                {amountToNextDiscount.toLocaleString("ru-RU", { maximumFractionDigits: 0 })} ₽
               </p>
             )}
             <p className="text-lg font-semibold">
