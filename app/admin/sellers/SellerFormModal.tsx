@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { FormEvent, useState } from "react";
+import { FormEvent, useId, useState } from "react";
 import { SELLER_LEGAL_FORMS } from "@/lib/sellerForms";
 import type { Seller } from "@/lib/sellers";
 
@@ -155,7 +155,7 @@ export default function SellerFormModal({ seller }: { seller?: Seller }) {
               <p className="text-xs text-muted">
                 Загружаются раздельно — не всегда есть оба сразу, и на документе они стоят в разных местах.
               </p>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="flex flex-col gap-4 sm:flex-row">
                 <ImageUpload
                   label="Подпись"
                   value={signatureImage}
@@ -202,28 +202,40 @@ function ImageUpload({
   onError: (msg: string) => void;
   readImageFile: (file: File, onLoad: (dataUrl: string) => void) => void;
 }) {
+  const inputId = useId();
   return (
-    <div className="flex flex-col gap-1.5">
+    <div className="flex flex-1 flex-col gap-1.5">
       <span className="text-sm font-medium">{label}</span>
-      <div className="flex items-center gap-2">
-        {value && (
+      <div className="flex items-center gap-3">
+        {value ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={value} alt={label} className="h-14 w-14 rounded border border-border bg-white object-contain p-1" />
+          <img src={value} alt={label} className="h-14 w-14 shrink-0 rounded border border-border bg-white object-contain p-1" />
+        ) : (
+          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded border border-dashed border-border text-[10px] text-muted">
+            нет файла
+          </div>
         )}
-        <div className="flex flex-col gap-1">
+        <div className="flex flex-col items-start gap-1">
           <input
+            id={inputId}
             type="file"
             accept="image/png,image/jpeg"
+            className="hidden"
             onChange={(e) => {
               const file = e.target.files?.[0];
               if (!file) return;
               onError("");
               readImageFile(file, onChange);
             }}
-            className="text-xs"
           />
+          <label
+            htmlFor={inputId}
+            className="inline-flex h-8 cursor-pointer items-center justify-center rounded-full bg-foreground px-3 text-xs font-medium text-background hover:bg-brand"
+          >
+            {value ? "Заменить файл" : "Загрузить файл"}
+          </label>
           {value && (
-            <button type="button" onClick={() => onChange(null)} className="w-fit text-xs text-red-600 hover:underline">
+            <button type="button" onClick={() => onChange(null)} className="text-xs text-red-600 hover:underline">
               Удалить
             </button>
           )}
