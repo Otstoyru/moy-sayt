@@ -2,6 +2,10 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   images: {
+    // Отдаём фото с Ozon как есть, без прогона через Vercel Image Optimization —
+    // у 300+ товаров это быстро упирается в бесплатный лимит оптимизации
+    // (402 OPTIMIZED_IMAGE_REQUEST_PAYMENT_REQUIRED), а Ozon и так отдаёт сжатые фото.
+    unoptimized: true,
     remotePatterns: [
       {
         protocol: "https",
