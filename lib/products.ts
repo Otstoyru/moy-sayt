@@ -1,5 +1,6 @@
 import { sql } from "@/lib/db";
 import { getCategories } from "@/lib/categories";
+import { resolveImages } from "@/lib/productImages";
 
 export type Product = {
   article: string;
@@ -28,7 +29,7 @@ function mapRow(r: Record<string, unknown>): Product {
     article: r.article as string,
     name: r.name as string,
     productType: r.product_type as string,
-    images: (r.images as string[]) ?? [],
+    images: resolveImages(r.article as string, r.images as string[] | null),
     packageSize: Number(r.package_size),
     minPrice: Number(r.min_price),
     stock: Number(r.stock),
